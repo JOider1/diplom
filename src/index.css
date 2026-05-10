@@ -7,3 +7,74 @@ body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
+
+.dark body {
+  @apply bg-slate-900 text-slate-100;
+}
+
+.dark .bg-white {
+  @apply bg-slate-800;
+}
+
+.dark .bg-slate-100 {
+  @apply bg-slate-700;
+}
+
+.dark .border-slate-300,
+.dark .border-slate-200 {
+  @apply border-slate-600;
+}
+
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-slate-500 {
+  @apply text-slate-100;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  @apply border-slate-500 bg-slate-700 text-slate-100;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #cbd5e1;
+}
+
+.dark thead.bg-slate-100 {
+  @apply bg-slate-700;
+}
+
+.dark tbody tr {
+  @apply bg-slate-800;
+}
+
+.dark .text-orange-600,
+.dark .text-orange-700,
+.dark .text-amber-700 {
+  @apply text-amber-300;
+}
+
+.dark button.bg-white,
+.dark a.bg-white {
+  @apply border-slate-500 bg-slate-700 text-slate-100;
+}
+
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover,
+.dark .hover\:bg-slate-200:hover {
+  @apply bg-slate-600 text-slate-100;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

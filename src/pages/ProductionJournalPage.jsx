@@ -1,44 +1,15 @@
-<<<<<<< HEAD
-import { useState } from 'react'
-import { productionBatches } from '../data/mockData'
-
-const defaultBatch = {
-  recipe: '',
-  rawSpentKg: '',
-=======
 import { useMemo, useState } from 'react'
 import ConfirmModal from '../components/common/ConfirmModal'
 import { useAppData } from '../context/AppDataContext'
 
 const defaultBatch = {
+  line: 'Лінія 1',
   recipe: '',
->>>>>>> 8fb2b64 (first commit)
   feedProducedKg: '',
 }
 
 function ProductionJournalPage() {
-<<<<<<< HEAD
-  const [batches, setBatches] = useState(productionBatches)
-  const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState(defaultBatch)
-
-  const handleSubmit = (event) => {
-    event.preventDefault()
-    const now = new Date()
-    const newBatch = {
-      id: batches.length + 1,
-      createdAt: now.toLocaleString('uk-UA'),
-      recipe: formData.recipe,
-      rawSpentKg: Number(formData.rawSpentKg),
-      feedProducedKg: Number(formData.feedProducedKg),
-    }
-    setBatches((prev) => [newBatch, ...prev])
-    setFormData(defaultBatch)
-    setShowForm(false)
-  }
-
-=======
-  const { batches, recipes, addBatch, updateBatch, deleteBatch } = useAppData()
+  const { batches, recipes, activeShift, addBatch, updateBatch, deleteBatch } = useAppData()
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ ...defaultBatch, recipe: recipes[0]?.name || '' })
   const [search, setSearch] = useState('')
@@ -47,11 +18,13 @@ function ProductionJournalPage() {
   const [error, setError] = useState('')
   const [editingBatchId, setEditingBatchId] = useState(null)
   const [deleteBatchId, setDeleteBatchId] = useState(null)
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' })
 
   const handleSubmit = (event) => {
     event.preventDefault()
     if (editingBatchId) {
       updateBatch(editingBatchId, {
+        line: formData.line,
         recipe: formData.recipe,
         feedProducedKg: Number(formData.feedProducedKg),
       })
@@ -62,6 +35,7 @@ function ProductionJournalPage() {
     }
 
     const result = addBatch({
+      line: formData.line,
       recipeName: formData.recipe,
       feedProducedKg: Number(formData.feedProducedKg),
     })
@@ -85,47 +59,60 @@ function ProductionJournalPage() {
     })
   }, [batches, dateFrom, search, selectedRecipe])
 
->>>>>>> 8fb2b64 (first commit)
+  const sortedBatches = useMemo(() => {
+    const direction = sortConfig.direction === 'asc' ? 1 : -1
+    return [...filteredBatches].sort((a, b) => {
+      const aValue = a[sortConfig.key] ?? ''
+      const bValue = b[sortConfig.key] ?? ''
+      if (typeof aValue === 'number' || typeof bValue === 'number') {
+        return (Number(aValue) - Number(bValue)) * direction
+      }
+      return String(aValue).localeCompare(String(bValue), 'uk') * direction
+    })
+  }, [filteredBatches, sortConfig])
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }))
+  }
+  const sortArrow = (key) =>
+    sortConfig.key === key ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-800">Журнал виробництва</h3>
         <button
           type="button"
+          disabled={!activeShift}
           onClick={() => setShowForm((prev) => !prev)}
-          className="rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+          className="rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           Додати партію
         </button>
       </div>
+      {!activeShift && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+          Зараз немає відкритої зміни. Щоб додати партію, відкрийте зміну на сторінці управління змінами.
+        </p>
+      )}
 
       {showForm && (
         <form
           onSubmit={handleSubmit}
           className="grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-3"
         >
-<<<<<<< HEAD
-          <input
+          <select
             required
-            placeholder="Рецепт корму"
-            value={formData.recipe}
-            onChange={(event) => setFormData((prev) => ({ ...prev, recipe: event.target.value }))}
+            value={formData.line}
+            onChange={(event) => setFormData((prev) => ({ ...prev, line: event.target.value }))}
             className="rounded-md border border-slate-300 px-3 py-2"
-          />
-          <input
-            required
-            type="number"
-            placeholder="Витрачено сировини, кг"
-            value={formData.rawSpentKg}
-            onChange={(event) =>
-              setFormData((prev) => ({ ...prev, rawSpentKg: event.target.value }))
-            }
-            className="rounded-md border border-slate-300 px-3 py-2"
-          />
-          <input
-            required
-            type="number"
-=======
+          >
+            <option value="Лінія 1">Лінія 1</option>
+            <option value="Лінія 2">Лінія 2</option>
+          </select>
           <select
             required
             value={formData.recipe}
@@ -142,7 +129,6 @@ function ProductionJournalPage() {
             required
             type="number"
             min="1"
->>>>>>> 8fb2b64 (first commit)
             placeholder="Вироблено корму, кг"
             value={formData.feedProducedKg}
             onChange={(event) =>
@@ -156,11 +142,6 @@ function ProductionJournalPage() {
           >
             Зберегти партію
           </button>
-<<<<<<< HEAD
-        </form>
-      )}
-
-=======
           {error && <p className="md:col-span-3 text-sm text-red-600">{error}</p>}
         </form>
       )}
@@ -192,35 +173,27 @@ function ProductionJournalPage() {
         />
       </div>
 
->>>>>>> 8fb2b64 (first commit)
       <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm">
         <table className="min-w-full text-left text-sm text-slate-700">
           <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
             <tr>
-              <th className="px-4 py-3">Час</th>
-              <th className="px-4 py-3">Рецепт</th>
-              <th className="px-4 py-3">Витрачено, кг</th>
-              <th className="px-4 py-3">Вироблено, кг</th>
-<<<<<<< HEAD
-            </tr>
-          </thead>
-          <tbody>
-            {batches.map((batch) => (
-=======
-              <th className="px-4 py-3">Собівартість, грн</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('createdAt')}>Час {sortArrow('createdAt')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('line')}>Лінія {sortArrow('line')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('recipe')}>Рецепт {sortArrow('recipe')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('rawSpentKg')}>Витрачено, кг {sortArrow('rawSpentKg')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('feedProducedKg')}>Вироблено, кг {sortArrow('feedProducedKg')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('batchCostUah')}>Собівартість, грн {sortArrow('batchCostUah')}</th>
               <th className="px-4 py-3">Дії</th>
             </tr>
           </thead>
           <tbody>
-            {filteredBatches.map((batch) => (
->>>>>>> 8fb2b64 (first commit)
+            {sortedBatches.map((batch) => (
               <tr key={batch.id} className="border-t border-slate-200">
                 <td className="px-4 py-3">{batch.createdAt}</td>
+                <td className="px-4 py-3">{batch.line || 'Лінія 1'}</td>
                 <td className="px-4 py-3">{batch.recipe}</td>
                 <td className="px-4 py-3">{batch.rawSpentKg}</td>
                 <td className="px-4 py-3">{batch.feedProducedKg}</td>
-<<<<<<< HEAD
-=======
                 <td className="px-4 py-3">
                   {batch.batchCostUah ? batch.batchCostUah.toLocaleString('uk-UA') : '—'}
                 </td>
@@ -230,7 +203,11 @@ function ProductionJournalPage() {
                       type="button"
                       onClick={() => {
                         setEditingBatchId(batch.id)
-                        setFormData({ recipe: batch.recipe, feedProducedKg: String(batch.feedProducedKg) })
+                        setFormData({
+                          line: batch.line || 'Лінія 1',
+                          recipe: batch.recipe,
+                          feedProducedKg: String(batch.feedProducedKg),
+                        })
                         setShowForm(true)
                       }}
                       className="rounded-md border border-slate-300 px-2 py-1 text-xs"
@@ -246,14 +223,11 @@ function ProductionJournalPage() {
                     </button>
                   </div>
                 </td>
->>>>>>> 8fb2b64 (first commit)
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-<<<<<<< HEAD
-=======
       {deleteBatchId && (
         <ConfirmModal
           title="Видалити партію?"
@@ -265,7 +239,6 @@ function ProductionJournalPage() {
           }}
         />
       )}
->>>>>>> 8fb2b64 (first commit)
     </section>
   )
 }

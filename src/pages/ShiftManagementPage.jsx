@@ -1,11 +1,6 @@
-<<<<<<< HEAD
-import { useState } from 'react'
-import { shiftOpeningDefaults } from '../data/mockData'
-=======
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { shiftOpeningDefaults } from '../data/mockData'
 import { useAppData } from '../context/AppDataContext'
->>>>>>> 8fb2b64 (first commit)
 
 const initialForm = {
   wheat: shiftOpeningDefaults.wheat,
@@ -16,19 +11,17 @@ const initialForm = {
 }
 
 function ShiftManagementPage() {
-<<<<<<< HEAD
-  const [formData, setFormData] = useState(initialForm)
-  const [isSubmitted, setIsSubmitted] = useState(false)
-=======
-  const { shifts, activeShift, openShift, closeShift } = useAppData()
+  const { shifts, batches, activeShift, openShift, closeShift } = useAppData()
   const [formData, setFormData] = useState(initialForm)
   const [notes, setNotes] = useState('')
+  const [operator, setOperator] = useState('')
   const [closeNotes, setCloseNotes] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
-  const [message, setMessage] = useState('')
->>>>>>> 8fb2b64 (first commit)
+  const [toastMessage, setToastMessage] = useState('')
+  const [toastType, setToastType] = useState('success')
+  const [sortConfig, setSortConfig] = useState({ key: 'openedAt', direction: 'desc' })
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -37,27 +30,27 @@ function ShiftManagementPage() {
 
   const handleSubmit = (event) => {
     event.preventDefault()
-<<<<<<< HEAD
-    setIsSubmitted(true)
-  }
-
-  return (
-    <section className="rounded-lg border border-slate-300 bg-white p-5 shadow-sm">
-      <h3 className="text-lg font-semibold text-slate-800">Відкрити зміну</h3>
-      <p className="mt-1 text-sm text-slate-600">
-        Зафіксуйте стартові залишки сировини та поточний стан ліній грануляції.
-=======
-    const result = openShift({ openingData: formData, notes })
-    setMessage(result.ok ? 'Зміну успішно відкрито.' : result.error)
+    const result = openShift({ openingData: formData, notes, operator })
+    setToastType(result.ok ? 'success' : 'error')
+    setToastMessage(result.ok ? 'Зміну успішно відкрито.' : result.error)
   }
 
   const handleCloseShift = () => {
     const result = closeShift(closeNotes)
-    setMessage(result.ok ? 'Зміну успішно закрито.' : result.error)
+    setToastType(result.ok ? 'success' : 'error')
+    setToastMessage(result.ok ? 'Зміну успішно закрито.' : result.error)
     if (result.ok) {
       setCloseNotes('')
     }
   }
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return
+    }
+    const timer = setTimeout(() => setToastMessage(''), 3000)
+    return () => clearTimeout(timer)
+  }, [toastMessage])
 
   const filteredShifts = useMemo(() => {
     return shifts.filter((shift) => {
@@ -70,15 +63,83 @@ function ShiftManagementPage() {
     })
   }, [dateFrom, search, shifts, statusFilter])
 
+  const sortedShifts = useMemo(() => {
+    const direction = sortConfig.direction === 'asc' ? 1 : -1
+    return [...filteredShifts].sort((a, b) => {
+      const aValue = a[sortConfig.key] ?? ''
+      const bValue = b[sortConfig.key] ?? ''
+      if (typeof aValue === 'number' || typeof bValue === 'number') {
+        return (Number(aValue) - Number(bValue)) * direction
+      }
+      return String(aValue).localeCompare(String(bValue), 'uk') * direction
+    })
+  }, [filteredShifts, sortConfig])
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }))
+  }
+  const sortArrow = (key) =>
+    sortConfig.key === key ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'
+
+  const shiftStats = useMemo(() => {
+    const closedShifts = shifts.filter((shift) => shift.status === 'Закрита' && shift.closedAt)
+    if (!closedShifts.length) {
+      return { avgHours: 0, avgTonsPerShift: 0 }
+    }
+
+    const parseDateTime = (value) => new Date(value.replace(' ', 'T'))
+    const totalHours = closedShifts.reduce((sum, shift) => {
+      const durationMs = parseDateTime(shift.closedAt) - parseDateTime(shift.openedAt)
+      return sum + Math.max(0, durationMs / (1000 * 60 * 60))
+    }, 0)
+    const totalTons = closedShifts.reduce((sum, shift) => {
+      const opened = parseDateTime(shift.openedAt)
+      const closed = parseDateTime(shift.closedAt)
+      const shiftTons = batches
+        .filter((batch) => {
+          const created = parseDateTime(batch.createdAt)
+          return created >= opened && created <= closed
+        })
+        .reduce((acc, batch) => acc + (Number(batch.feedProducedKg) || 0), 0)
+      return sum + shiftTons / 1000
+    }, 0)
+
+    return {
+      avgHours: Number((totalHours / closedShifts.length).toFixed(1)),
+      avgTonsPerShift: Number((totalTons / closedShifts.length).toFixed(2)),
+    }
+  }, [batches, shifts])
+
   return (
     <section className="rounded-lg border border-slate-300 bg-white p-5 shadow-sm">
-      <h3 className="text-lg font-semibold text-slate-800">Управління змінами</h3>
+      <div className="no-print flex items-center justify-between gap-2">
+        <h3 className="text-lg font-semibold text-slate-800">Управління змінами</h3>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+        >
+          Роздрукувати
+        </button>
+      </div>
       <p className="mt-1 text-sm text-slate-600">
         Зафіксуйте стартові залишки, відкрийте зміну та закрийте її після завершення.
->>>>>>> 8fb2b64 (first commit)
       </p>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-lg border border-slate-200 p-3">
+          <p className="text-sm text-slate-600">Середня тривалість зміни</p>
+          <p className="text-xl font-semibold text-slate-800">{shiftStats.avgHours} год</p>
+        </div>
+        <div className="rounded-lg border border-slate-200 p-3">
+          <p className="text-sm text-slate-600">Середній випуск за зміну</p>
+          <p className="text-xl font-semibold text-slate-800">{shiftStats.avgTonsPerShift} т</p>
+        </div>
+      </div>
 
-      <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+      <form className="no-print mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
         <label className="text-sm font-medium text-slate-700">
           Пшениця, т
           <input
@@ -113,6 +174,18 @@ function ShiftManagementPage() {
         </label>
 
         <label className="text-sm font-medium text-slate-700">
+          Оператор зміни
+          <input
+            type="text"
+            name="operator"
+            value={operator}
+            onChange={(event) => setOperator(event.target.value)}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            placeholder="ПІБ оператора"
+          />
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">
           Лінія грануляції №1
           <select
             name="granulationLine1"
@@ -143,24 +216,11 @@ function ShiftManagementPage() {
         <div className="md:col-span-2">
           <button
             type="submit"
-<<<<<<< HEAD
-=======
             disabled={Boolean(activeShift)}
->>>>>>> 8fb2b64 (first commit)
             className="rounded-md bg-enterprise-700 px-4 py-2 text-sm font-semibold text-white hover:bg-enterprise-800"
           >
             Відкрити зміну
           </button>
-<<<<<<< HEAD
-        </div>
-      </form>
-
-      {isSubmitted && (
-        <div className="mt-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-          Зміну успішно відкрито (імітація без збереження в БД).
-        </div>
-      )}
-=======
           {activeShift && (
             <p className="mt-2 text-sm text-orange-700">
               Є активна зміна від {activeShift.openedAt}. Спочатку закрийте її.
@@ -169,7 +229,7 @@ function ShiftManagementPage() {
         </div>
       </form>
 
-      <div className="mt-4 rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="no-print mt-4 rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <p className="text-sm font-medium text-slate-700">Коментар при відкритті</p>
         <input
           placeholder="Наприклад: Нічна зміна, штат 6 операторів"
@@ -179,7 +239,7 @@ function ShiftManagementPage() {
         />
       </div>
 
-      <div className="mt-4 rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="no-print mt-4 rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <p className="text-sm font-medium text-slate-700">
           Закриття зміни {activeShift ? `(відкрита ${activeShift.openedAt})` : ''}
         </p>
@@ -201,13 +261,17 @@ function ShiftManagementPage() {
         </div>
       </div>
 
-      {message && (
-        <div className="mt-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-          {message}
+      {toastMessage && (
+        <div
+          className={`no-print fixed bottom-5 right-5 z-50 rounded-md px-4 py-3 text-sm text-white shadow-lg ${
+            toastType === 'error' ? 'bg-red-600' : 'bg-emerald-600'
+          }`}
+        >
+          {toastMessage}
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-3">
+      <div className="no-print mt-4 grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-3">
         <input
           placeholder="Пошук за часом або приміткою"
           value={search}
@@ -235,22 +299,24 @@ function ShiftManagementPage() {
         <table className="min-w-full text-left text-sm text-slate-700">
           <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
             <tr>
-              <th className="px-4 py-3">ID</th>
-              <th className="px-4 py-3">Відкрито</th>
-              <th className="px-4 py-3">Закрито</th>
-              <th className="px-4 py-3">Статус</th>
-              <th className="px-4 py-3">Коментар</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('id')}>ID {sortArrow('id')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('openedAt')}>Відкрито {sortArrow('openedAt')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('closedAt')}>Закрито {sortArrow('closedAt')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('status')}>Статус {sortArrow('status')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('notes')}>Коментар {sortArrow('notes')}</th>
+              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('operator')}>Оператор {sortArrow('operator')}</th>
               <th className="px-4 py-3">Стартові дані</th>
             </tr>
           </thead>
           <tbody>
-            {filteredShifts.map((shift) => (
+            {sortedShifts.map((shift) => (
               <tr key={shift.id} className="border-t border-slate-200">
                 <td className="px-4 py-3">{shift.id}</td>
                 <td className="px-4 py-3">{shift.openedAt}</td>
                 <td className="px-4 py-3">{shift.closedAt || '—'}</td>
                 <td className="px-4 py-3">{shift.status}</td>
                 <td className="px-4 py-3">{shift.notes || '—'}</td>
+                <td className="px-4 py-3">{shift.operator || '—'}</td>
                 <td className="px-4 py-3">
                   Пш {shift.openingData.wheat}т, Кк {shift.openingData.corn}т, Пр {shift.openingData.premix}т
                 </td>
@@ -259,7 +325,6 @@ function ShiftManagementPage() {
           </tbody>
         </table>
       </div>
->>>>>>> 8fb2b64 (first commit)
     </section>
   )
 }

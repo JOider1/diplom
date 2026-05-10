@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import {
   equipmentDirectory,
   incidentRecords,
@@ -12,6 +12,7 @@ import {
 const AppDataContext = createContext(null)
 const RAW_KEYS = ['wheat', 'corn', 'premix']
 const KG_PER_TON = 1000
+const STORAGE_KEY = 'diplom-app-data'
 
 const formatDateTime = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
@@ -21,16 +22,47 @@ const formatDateTime = (date) =>
     '0',
   )}`
 
-export function AppDataProvider({ children }) {
-  const [recipesState, setRecipesState] = useState(recipes)
-  const [batches, setBatches] = useState(productionBatches)
-  const [incidents, setIncidents] = useState(incidentRecords)
-  const [equipment, setEquipment] = useState(equipmentDirectory)
-  const [shifts, setShifts] = useState(shiftRecords)
-  const [storageKg, setStorageKg] = useState(initialRawStorageKg)
-  const [movements, setMovements] = useState(rawMovements)
+const safeParseStorage = () => {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
 
-  const addBatch = ({ recipeName, feedProducedKg }) => {
+export function AppDataProvider({ children }) {
+  const persistedState = safeParseStorage()
+  const [recipesState, setRecipesState] = useState(persistedState?.recipes ?? recipes)
+  const [batches, setBatches] = useState(persistedState?.batches ?? productionBatches)
+  const [incidents, setIncidents] = useState(persistedState?.incidents ?? incidentRecords)
+  const [equipment, setEquipment] = useState(persistedState?.equipment ?? equipmentDirectory)
+  const [shifts, setShifts] = useState(persistedState?.shifts ?? shiftRecords)
+  const [storageKg, setStorageKg] = useState(persistedState?.storageKg ?? initialRawStorageKg)
+  const [movements, setMovements] = useState(persistedState?.movements ?? rawMovements)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        recipes: recipesState,
+        batches,
+        incidents,
+        equipment,
+        shifts,
+        storageKg,
+        movements,
+      }),
+    )
+  }, [batches, equipment, incidents, movements, recipesState, shifts, storageKg])
+
+  const addBatch = ({ recipeName, feedProducedKg, line }) => {
     const matchedRecipe = recipesState.find((recipe) => recipe.name === recipeName)
     if (!matchedRecipe) {
       return { ok: false, error: 'Рецепт не знайдено' }
@@ -64,6 +96,7 @@ export function AppDataProvider({ children }) {
     const newBatch = {
       id: nextBatchId,
       createdAt,
+      line: line || 'Лінія 1',
       recipe: recipeName,
       rawSpentKg,
       feedProducedKg,
@@ -85,6 +118,34 @@ export function AppDataProvider({ children }) {
     return { ok: true }
   }
 
+  const addRawArrival = ({ source, wheatKg, cornKg, premixKg }) => {
+    const wheatDelta = Number(wheatKg) || 0
+    const cornDelta = Number(cornKg) || 0
+    const premixDelta = Number(premixKg) || 0
+    if (wheatDelta <= 0 && cornDelta <= 0 && premixDelta <= 0) {
+      return { ok: false, error: 'Вкажіть обсяг хоча б для однієї позиції сировини' }
+    }
+
+    const nextStorage = {
+      wheat: storageKg.wheat + wheatDelta,
+      corn: storageKg.corn + cornDelta,
+      premix: storageKg.premix + premixDelta,
+    }
+    const now = formatDateTime(new Date())
+    const movement = {
+      id: movements.length ? Math.max(...movements.map((item) => item.id)) + 1 : 1,
+      time: now,
+      type: 'Надходження',
+      source: source || 'Постачання',
+      deltaKg: { wheat: wheatDelta, corn: cornDelta, premix: premixDelta },
+      balanceKg: nextStorage,
+    }
+
+    setStorageKg(nextStorage)
+    setMovements((prev) => [movement, ...prev])
+    return { ok: true }
+  }
+
   const updateBatch = (batchId, nextValues) => {
     setBatches((prev) =>
       prev.map((batch) => (batch.id === batchId ? { ...batch, ...nextValues } : batch)),
@@ -97,7 +158,7 @@ export function AppDataProvider({ children }) {
 
   const addIncident = (incident) => {
     const nextId = incidents.length ? Math.max(...incidents.map((item) => item.id)) + 1 : 1
-    setIncidents((prev) => [{ id: nextId, ...incident }, ...prev])
+    setIncidents((prev) => [{ id: nextId, severity: 'Середня', ...incident }, ...prev])
   }
 
   const updateIncidentStatus = (incidentId, status) => {
@@ -149,7 +210,7 @@ export function AppDataProvider({ children }) {
 
   const activeShift = shifts.find((shift) => shift.status === 'Відкрита') || null
 
-  const openShift = ({ openingData, notes }) => {
+  const openShift = ({ openingData, notes, operator }) => {
     if (activeShift) {
       return { ok: false, error: 'Спочатку закрийте поточну відкриту зміну' }
     }
@@ -162,6 +223,7 @@ export function AppDataProvider({ children }) {
       status: 'Відкрита',
       openingData,
       notes,
+      operator: operator || 'Невідомо',
     }
     setShifts((prev) => [newShift, ...prev])
     return { ok: true }
@@ -203,6 +265,7 @@ export function AppDataProvider({ children }) {
     addRecipe,
     updateRecipe,
     deleteRecipe,
+    addRawArrival,
     setEquipment,
     openShift,
     closeShift,

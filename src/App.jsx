@@ -1,16 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-<<<<<<< HEAD
-import MainLayout from './components/layout/MainLayout'
-import { RoleProvider } from './context/RoleContext'
-import DashboardPage from './pages/DashboardPage'
-import IncidentsPage from './pages/IncidentsPage'
-import NotFoundPage from './pages/NotFoundPage'
-import ProductionJournalPage from './pages/ProductionJournalPage'
-=======
 import PrivateRoute from './components/auth/PrivateRoute'
 import MainLayout from './components/layout/MainLayout'
 import { AppDataProvider } from './context/AppDataContext'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import DashboardPage from './pages/DashboardPage'
 import DailyOverviewPage from './pages/DailyOverviewPage'
 import EquipmentPage from './pages/EquipmentPage'
@@ -20,59 +13,45 @@ import NotFoundPage from './pages/NotFoundPage'
 import ProductionJournalPage from './pages/ProductionJournalPage'
 import RecipesPage from './pages/RecipesPage'
 import ReportsPage from './pages/ReportsPage'
->>>>>>> 8fb2b64 (first commit)
 import ShiftManagementPage from './pages/ShiftManagementPage'
 
 function App() {
   return (
-<<<<<<< HEAD
-    <RoleProvider>
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="shift-management" element={<ShiftManagementPage />} />
-          <Route path="production-journal" element={<ProductionJournalPage />} />
-          <Route path="incidents" element={<IncidentsPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
-    </RoleProvider>
-=======
-    <AuthProvider>
-      <AppDataProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/"
-            element={
-              <PrivateRoute>
-                <MainLayout />
-              </PrivateRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="daily-overview" element={<DailyOverviewPage />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <AppDataProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
             <Route
-              path="shift-management"
+              path="/"
               element={
-                <PrivateRoute allowedRoles={['admin', 'shift-manager']}>
-                  <ShiftManagementPage />
+                <PrivateRoute>
+                  <MainLayout />
                 </PrivateRoute>
               }
-            />
-            <Route path="production-journal" element={<ProductionJournalPage />} />
-            <Route path="incidents" element={<IncidentsPage />} />
-            <Route path="recipes" element={<RecipesPage />} />
-            <Route path="reports" element={<ReportsPage />} />
-            <Route path="equipment" element={<EquipmentPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
-      </AppDataProvider>
-    </AuthProvider>
->>>>>>> 8fb2b64 (first commit)
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="daily-overview" element={<DailyOverviewPage />} />
+              <Route
+                path="shift-management"
+                element={
+                  <PrivateRoute allowedRoles={['admin', 'shift-manager']}>
+                    <ShiftManagementPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="production-journal" element={<ProductionJournalPage />} />
+              <Route path="incidents" element={<IncidentsPage />} />
+              <Route path="recipes" element={<RecipesPage />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="equipment" element={<EquipmentPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </AppDataProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

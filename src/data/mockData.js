@@ -14,8 +14,6 @@ export const rawStorageStatus = [
   { name: 'Премікси', value: 15 },
 ]
 
-<<<<<<< HEAD
-=======
 export const recipes = [
   {
     id: 'starter-broiler',
@@ -37,7 +35,6 @@ export const initialRawStorageKg = {
   premix: 18000,
 }
 
->>>>>>> 8fb2b64 (first commit)
 export const shiftOpeningDefaults = {
   wheat: 92,
   corn: 71,
@@ -46,14 +43,13 @@ export const shiftOpeningDefaults = {
   granulationLine2: 'Тех. огляд',
 }
 
-<<<<<<< HEAD
-=======
 export const shiftRecords = [
   {
     id: 1,
     openedAt: '2026-04-27 08:00',
     closedAt: '2026-04-27 20:00',
     status: 'Закрита',
+    operator: 'Іван Петренко',
     openingData: {
       wheat: 92,
       corn: 71,
@@ -63,28 +59,164 @@ export const shiftRecords = [
     },
     notes: 'Планова денна зміна',
   },
+  {
+    id: 2,
+    openedAt: '2026-05-01 08:00',
+    closedAt: '2026-05-01 20:00',
+    status: 'Закрита',
+    operator: 'Оксана Коваль',
+    openingData: {
+      wheat: 88,
+      corn: 68,
+      premix: 16,
+      granulationLine1: 'Робоча',
+      granulationLine2: 'Робоча',
+    },
+    notes: 'Підвищене навантаження по свинячому раціону',
+  },
+  {
+    id: 3,
+    openedAt: '2026-05-02 08:00',
+    closedAt: '2026-05-02 20:00',
+    status: 'Закрита',
+    operator: 'Сергій Мельник',
+    openingData: {
+      wheat: 85,
+      corn: 66,
+      premix: 16,
+      granulationLine1: 'Робоча',
+      granulationLine2: 'Тех. огляд',
+    },
+    notes: 'Профілактика на лінії 2',
+  },
+  {
+    id: 4,
+    openedAt: '2026-05-03 08:00',
+    closedAt: '',
+    status: 'Відкрита',
+    operator: 'Ірина Шевчук',
+    openingData: {
+      wheat: 82,
+      corn: 64,
+      premix: 15,
+      granulationLine1: 'Робоча',
+      granulationLine2: 'Робоча',
+    },
+    notes: 'Поточна зміна',
+  },
 ]
 
->>>>>>> 8fb2b64 (first commit)
 export const productionBatches = [
   {
     id: 1,
     createdAt: '2026-04-27 08:20',
+    line: 'Лінія 1',
     recipe: 'Стартовий комбікорм для бройлерів',
     rawSpentKg: 7800,
     feedProducedKg: 7500,
+    batchCostUah: 81495,
   },
   {
     id: 2,
     createdAt: '2026-04-27 12:40',
+    line: 'Лінія 2',
     recipe: 'Комбікорм для свиней, фініш',
     rawSpentKg: 6400,
     feedProducedKg: 6150,
+    batchCostUah: 74108,
+  },
+  {
+    id: 3,
+    createdAt: '2026-05-01 09:10',
+    line: 'Лінія 1',
+    recipe: 'Стартовий комбікорм для бройлерів',
+    rawSpentKg: 8320,
+    feedProducedKg: 8000,
+    batchCostUah: 86928,
+  },
+  {
+    id: 4,
+    createdAt: '2026-05-01 13:45',
+    line: 'Лінія 2',
+    recipe: 'Комбікорм для свиней, фініш',
+    rawSpentKg: 6760,
+    feedProducedKg: 6500,
+    batchCostUah: 78307,
+  },
+  {
+    id: 5,
+    createdAt: '2026-05-02 08:35',
+    line: 'Лінія 1',
+    recipe: 'Стартовий комбікорм для бройлерів',
+    rawSpentKg: 7800,
+    feedProducedKg: 7500,
+    batchCostUah: 81495,
+  },
+  {
+    id: 6,
+    createdAt: '2026-05-02 15:20',
+    line: 'Лінія 1',
+    recipe: 'Комбікорм для свиней, фініш',
+    rawSpentKg: 6038,
+    feedProducedKg: 5800,
+    batchCostUah: 69843,
+  },
+  {
+    id: 7,
+    createdAt: '2026-05-03 08:25',
+    line: 'Лінія 2',
+    recipe: 'Стартовий комбікорм для бройлерів',
+    rawSpentKg: 7280,
+    feedProducedKg: 7000,
+    batchCostUah: 76076,
+  },
+  {
+    id: 8,
+    createdAt: '2026-05-03 12:55',
+    line: 'Лінія 1',
+    recipe: 'Комбікорм для свиней, фініш',
+    rawSpentKg: 6245,
+    feedProducedKg: 6000,
+    batchCostUah: 72284,
+  },
+  {
+    id: 9,
+    createdAt: '2026-04-20 09:00',
+    line: 'Лінія 1',
+    recipe: 'Стартовий комбікорм для бройлерів',
+    rawSpentKg: 6760,
+    feedProducedKg: 6500,
+    batchCostUah: 70629,
+  },
+  {
+    id: 10,
+    createdAt: '2026-04-22 11:30',
+    line: 'Лінія 2',
+    recipe: 'Комбікорм для свиней, фініш',
+    rawSpentKg: 5614,
+    feedProducedKg: 5400,
+    batchCostUah: 65056,
+  },
+  {
+    id: 11,
+    createdAt: '2026-04-24 10:40',
+    line: 'Лінія 1',
+    recipe: 'Стартовий комбікорм для бройлерів',
+    rawSpentKg: 7072,
+    feedProducedKg: 6800,
+    batchCostUah: 73888,
+  },
+  {
+    id: 12,
+    createdAt: '2026-04-26 14:10',
+    line: 'Лінія 2',
+    recipe: 'Комбікорм для свиней, фініш',
+    rawSpentKg: 5822,
+    feedProducedKg: 5600,
+    batchCostUah: 67466,
   },
 ]
 
-<<<<<<< HEAD
-=======
 export const rawMovements = [
   {
     id: 1,
@@ -102,15 +234,119 @@ export const rawMovements = [
     deltaKg: { wheat: -3075, corn: -2645, premix: -430 },
     balanceKg: { wheat: 84275, corn: 65880, premix: 17195 },
   },
+  {
+    id: 3,
+    time: '2026-05-01 07:40',
+    type: 'Надходження',
+    source: 'ТОВ Агро-Сировина',
+    deltaKg: { wheat: 12000, corn: 8000, premix: 2500 },
+    balanceKg: { wheat: 96275, corn: 73880, premix: 19695 },
+  },
+  {
+    id: 4,
+    time: '2026-05-01 09:10',
+    type: 'Списання',
+    source: 'Партія #3',
+    deltaKg: { wheat: -4960, corn: -2640, premix: -400 },
+    balanceKg: { wheat: 91315, corn: 71240, premix: 19295 },
+  },
+  {
+    id: 5,
+    time: '2026-05-01 13:45',
+    type: 'Списання',
+    source: 'Партія #4',
+    deltaKg: { wheat: -3250, corn: -2795, premix: -455 },
+    balanceKg: { wheat: 88065, corn: 68445, premix: 18840 },
+  },
+  {
+    id: 6,
+    time: '2026-05-02 08:35',
+    type: 'Списання',
+    source: 'Партія #5',
+    deltaKg: { wheat: -4650, corn: -2475, premix: -375 },
+    balanceKg: { wheat: 83415, corn: 65970, premix: 18465 },
+  },
+  {
+    id: 7,
+    time: '2026-05-02 10:15',
+    type: 'Надходження',
+    source: 'ПП ЗерноПлюс',
+    deltaKg: { wheat: 7000, corn: 5000, premix: 1200 },
+    balanceKg: { wheat: 90415, corn: 70970, premix: 19665 },
+  },
+  {
+    id: 8,
+    time: '2026-05-02 15:20',
+    type: 'Списання',
+    source: 'Партія #6',
+    deltaKg: { wheat: -2900, corn: -2494, premix: -406 },
+    balanceKg: { wheat: 87515, corn: 68476, premix: 19259 },
+  },
+  {
+    id: 9,
+    time: '2026-05-03 08:25',
+    type: 'Списання',
+    source: 'Партія #7',
+    deltaKg: { wheat: -4340, corn: -2310, premix: -350 },
+    balanceKg: { wheat: 83175, corn: 66166, premix: 18909 },
+  },
+  {
+    id: 10,
+    time: '2026-05-03 12:55',
+    type: 'Списання',
+    source: 'Партія #8',
+    deltaKg: { wheat: -3000, corn: -2580, premix: -420 },
+    balanceKg: { wheat: 80175, corn: 63586, premix: 18489 },
+  },
+  {
+    id: 11,
+    time: '2026-04-20 09:00',
+    type: 'Списання',
+    source: 'Партія #9',
+    deltaKg: { wheat: -4030, corn: -2145, premix: -325 },
+    balanceKg: { wheat: 88145, corn: 68855, premix: 17675 },
+  },
+  {
+    id: 12,
+    time: '2026-04-22 11:30',
+    type: 'Списання',
+    source: 'Партія #10',
+    deltaKg: { wheat: -2700, corn: -2322, premix: -378 },
+    balanceKg: { wheat: 85445, corn: 66533, premix: 17297 },
+  },
+  {
+    id: 13,
+    time: '2026-04-24 10:40',
+    type: 'Списання',
+    source: 'Партія #11',
+    deltaKg: { wheat: -4216, corn: -2244, premix: -340 },
+    balanceKg: { wheat: 81229, corn: 64289, premix: 16957 },
+  },
+  {
+    id: 14,
+    time: '2026-04-25 08:15',
+    type: 'Надходження',
+    source: 'ТОВ ФідРесурс',
+    deltaKg: { wheat: 9000, corn: 6000, premix: 1800 },
+    balanceKg: { wheat: 90229, corn: 70289, premix: 18757 },
+  },
+  {
+    id: 15,
+    time: '2026-04-26 14:10',
+    type: 'Списання',
+    source: 'Партія #12',
+    deltaKg: { wheat: -2800, corn: -2408, premix: -392 },
+    balanceKg: { wheat: 87429, corn: 67881, premix: 18365 },
+  },
 ]
 
->>>>>>> 8fb2b64 (first commit)
 export const incidentRecords = [
   {
     id: 1,
     time: '2026-04-27 09:15',
     equipment: 'Гранулятор ГР-2',
     description: 'Перегрів підшипника приводного вузла',
+    severity: 'Висока',
     status: 'В роботі',
   },
   {
@@ -118,11 +354,26 @@ export const incidentRecords = [
     time: '2026-04-27 14:05',
     equipment: 'Дозатор мікрокомпонентів',
     description: 'Нестабільна подача преміксу',
+    severity: 'Середня',
+    status: 'Закрито',
+  },
+  {
+    id: 3,
+    time: '2026-05-01 11:20',
+    equipment: 'Лінія грануляції №2',
+    description: 'Коливання тиску пари',
+    severity: 'Критична',
+    status: 'В роботі',
+  },
+  {
+    id: 4,
+    time: '2026-05-02 16:10',
+    equipment: 'Елеватор ЕЛ-1',
+    description: 'Підвищений шум редуктора',
+    severity: 'Низька',
     status: 'Закрито',
   },
 ]
-<<<<<<< HEAD
-=======
 
 export const equipmentDirectory = [
   { id: 1, name: 'Лінія грануляції №1', type: 'Лінія', status: 'Робоча', nextMaintenance: '2026-05-12' },
@@ -130,4 +381,3 @@ export const equipmentDirectory = [
   { id: 3, name: 'Гранулятор ГР-2', type: 'Гранулятор', status: 'Робоча', nextMaintenance: '2026-05-08' },
   { id: 4, name: 'Елеватор ЕЛ-1', type: 'Елеватор', status: 'Робоча', nextMaintenance: '2026-05-18' },
 ]
->>>>>>> 8fb2b64 (first commit)

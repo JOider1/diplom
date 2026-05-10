@@ -27,7 +27,8 @@ function DailyOverviewPage() {
 
   return (
     <section className="space-y-4">
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="no-print rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <label className="text-sm font-medium text-slate-700">
           Оберіть дату
           <input
@@ -37,6 +38,14 @@ function DailyOverviewPage() {
             className="ml-3 rounded-md border border-slate-300 px-3 py-2"
           />
         </label>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+          >
+            Роздрукувати
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">

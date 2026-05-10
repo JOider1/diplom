@@ -1,47 +1,120 @@
 import {
   Bar,
   BarChart,
-<<<<<<< HEAD
-  Cell,
   Legend,
-  Pie,
-  PieChart,
-=======
-  Legend,
->>>>>>> 8fb2b64 (first commit)
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
-<<<<<<< HEAD
-import { productionByWeek, rawStorageStatus } from '../data/mockData'
-
-const PIE_COLORS = ['#1d4ed8', '#3b82f6', '#f97316']
-
-function DashboardPage() {
-=======
+import { useMemo, useState } from 'react'
 import { useAppData } from '../context/AppDataContext'
-import { initialRawStorageKg, productionByWeek } from '../data/mockData'
+import { initialRawStorageKg } from '../data/mockData'
 
 function DashboardPage() {
-  const { storageKg, movements, averageDailyConsumptionKg } = useAppData()
+  const { storageKg, movements, batches, averageDailyConsumptionKg, addRawArrival } = useAppData()
+  const [period, setPeriod] = useState('all')
+  const [arrivalForm, setArrivalForm] = useState({
+    source: '',
+    wheatKg: '',
+    cornKg: '',
+    premixKg: '',
+  })
+  const [arrivalError, setArrivalError] = useState('')
+  const [sortConfig, setSortConfig] = useState({ key: 'time', direction: 'desc' })
+
+  const cutoffDate = useMemo(() => {
+    const now = new Date()
+    if (period === 'week') {
+      now.setDate(now.getDate() - 7)
+      return now
+    }
+    if (period === 'month') {
+      now.setMonth(now.getMonth() - 1)
+      return now
+    }
+    return null
+  }, [period])
+
+  const chartData = useMemo(() => {
+    const byDay = batches.reduce((acc, batch) => {
+      if (cutoffDate && new Date(batch.createdAt.replace(' ', 'T')) < cutoffDate) {
+        return acc
+      }
+      const day = batch.createdAt.slice(5, 10)
+      acc[day] = (acc[day] || 0) + (Number(batch.feedProducedKg) || 0)
+      return acc
+    }, {})
+    return Object.entries(byDay)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, producedKg]) => ({ day, tons: Number((producedKg / 1000).toFixed(2)) }))
+  }, [batches, cutoffDate])
+
+  const filteredMovements = useMemo(
+    () =>
+      movements.filter(
+        (movement) => !cutoffDate || new Date(movement.time.replace(' ', 'T')) >= cutoffDate,
+      ),
+    [cutoffDate, movements],
+  )
+
+  const sortedMovements = useMemo(() => {
+    const direction = sortConfig.direction === 'asc' ? 1 : -1
+    return [...filteredMovements].sort((a, b) => {
+      if (sortConfig.key === 'delta') {
+        const aTotal = Math.abs(a.deltaKg.wheat) + Math.abs(a.deltaKg.corn) + Math.abs(a.deltaKg.premix)
+        const bTotal = Math.abs(b.deltaKg.wheat) + Math.abs(b.deltaKg.corn) + Math.abs(b.deltaKg.premix)
+        return (aTotal - bTotal) * direction
+      }
+      const aValue = String(a[sortConfig.key] ?? '')
+      const bValue = String(b[sortConfig.key] ?? '')
+      return aValue.localeCompare(bValue, 'uk') * direction
+    })
+  }, [filteredMovements, sortConfig])
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }))
+  }
+  const sortArrow = (key) =>
+    sortConfig.key === key ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'
+
+  const handleArrivalSubmit = (event) => {
+    event.preventDefault()
+    const result = addRawArrival(arrivalForm)
+    if (!result.ok) {
+      setArrivalError(result.error)
+      return
+    }
+    setArrivalError('')
+    setArrivalForm({ source: '', wheatKg: '', cornKg: '', premixKg: '' })
+  }
   const storageCards = [
     { key: 'wheat', label: 'Пшениця' },
     { key: 'corn', label: 'Кукурудза' },
     { key: 'premix', label: 'Премікси' },
   ]
 
->>>>>>> 8fb2b64 (first commit)
   return (
     <section className="space-y-6">
       <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-slate-800">
-          Виробництво кормів за тиждень (т)
-        </h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-slate-800">Виробництво кормів (т)</h3>
+          <select
+            value={period}
+            onChange={(event) => setPeriod(event.target.value)}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            <option value="week">За тиждень</option>
+            <option value="month">За місяць</option>
+            <option value="all">За весь час</option>
+          </select>
+        </div>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={productionByWeek}>
+            <BarChart data={chartData}>
               <XAxis dataKey="day" stroke="#475569" />
               <YAxis stroke="#475569" />
               <Tooltip />
@@ -53,32 +126,46 @@ function DashboardPage() {
       </div>
 
       <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-<<<<<<< HEAD
-        <h3 className="mb-4 text-lg font-semibold text-slate-800">
-          Завантаженість складів сировиною (%)
-        </h3>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={rawStorageStatus}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={110}
-                label
-              >
-                {rawStorageStatus.map((entry, index) => (
-                  <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-=======
         <h3 className="mb-4 text-lg font-semibold text-slate-800">Склад сировини та рух</h3>
+        <form onSubmit={handleArrivalSubmit} className="mb-4 grid gap-3 md:grid-cols-5">
+          <input
+            placeholder="Постачальник / джерело"
+            value={arrivalForm.source}
+            onChange={(event) => setArrivalForm((prev) => ({ ...prev, source: event.target.value }))}
+            className="rounded-md border border-slate-300 px-3 py-2"
+          />
+          <input
+            type="number"
+            min="0"
+            placeholder="Пшениця, кг"
+            value={arrivalForm.wheatKg}
+            onChange={(event) => setArrivalForm((prev) => ({ ...prev, wheatKg: event.target.value }))}
+            className="rounded-md border border-slate-300 px-3 py-2"
+          />
+          <input
+            type="number"
+            min="0"
+            placeholder="Кукурудза, кг"
+            value={arrivalForm.cornKg}
+            onChange={(event) => setArrivalForm((prev) => ({ ...prev, cornKg: event.target.value }))}
+            className="rounded-md border border-slate-300 px-3 py-2"
+          />
+          <input
+            type="number"
+            min="0"
+            placeholder="Премікси, кг"
+            value={arrivalForm.premixKg}
+            onChange={(event) => setArrivalForm((prev) => ({ ...prev, premixKg: event.target.value }))}
+            className="rounded-md border border-slate-300 px-3 py-2"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-enterprise-700 px-4 py-2 text-sm font-semibold text-white hover:bg-enterprise-800"
+          >
+            Додати надходження
+          </button>
+          {arrivalError && <p className="md:col-span-5 text-sm text-red-600">{arrivalError}</p>}
+        </form>
         <div className="grid gap-4 md:grid-cols-3">
           {storageCards.map((item) => {
             const current = storageKg[item.key]
@@ -109,15 +196,15 @@ function DashboardPage() {
           <table className="min-w-full text-left text-sm text-slate-700">
             <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
               <tr>
-                <th className="px-4 py-3">Час</th>
-                <th className="px-4 py-3">Тип</th>
-                <th className="px-4 py-3">Джерело</th>
-                <th className="px-4 py-3">Рух, кг</th>
+                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('time')}>Час {sortArrow('time')}</th>
+                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('type')}>Тип {sortArrow('type')}</th>
+                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('source')}>Джерело {sortArrow('source')}</th>
+                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('delta')}>Рух, кг {sortArrow('delta')}</th>
                 <th className="px-4 py-3">Залишок, кг</th>
               </tr>
             </thead>
             <tbody>
-              {movements.map((movement) => (
+              {sortedMovements.map((movement) => (
                 <tr key={movement.id} className="border-t border-slate-200">
                   <td className="px-4 py-3">{movement.time}</td>
                   <td className="px-4 py-3">{movement.type}</td>
@@ -132,7 +219,6 @@ function DashboardPage() {
               ))}
             </tbody>
           </table>
->>>>>>> 8fb2b64 (first commit)
         </div>
       </div>
     </section>
