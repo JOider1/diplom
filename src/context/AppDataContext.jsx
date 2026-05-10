@@ -34,8 +34,41 @@ const safeParseStorage = () => {
   }
 }
 
+const normalizePersistedState = (persistedState) => {
+  if (!persistedState || typeof persistedState !== 'object') {
+    return null
+  }
+
+  const safeArray = (value, fallback) => (Array.isArray(value) ? value : fallback)
+  const safeObject = (value, fallback) =>
+    value && typeof value === 'object' && !Array.isArray(value) ? value : fallback
+  const mergeById = (fallback, persisted) => {
+    const nextMap = new Map()
+    fallback.forEach((item) => nextMap.set(item.id, item))
+    persisted.forEach((item) => nextMap.set(item.id, item))
+    return Array.from(nextMap.values())
+  }
+
+  const persistedRecipes = safeArray(persistedState.recipes, [])
+  const persistedBatches = safeArray(persistedState.batches, [])
+  const persistedIncidents = safeArray(persistedState.incidents, [])
+  const persistedEquipment = safeArray(persistedState.equipment, [])
+  const persistedShifts = safeArray(persistedState.shifts, [])
+  const persistedMovements = safeArray(persistedState.movements, [])
+
+  return {
+    recipes: mergeById(recipes, persistedRecipes),
+    batches: mergeById(productionBatches, persistedBatches),
+    incidents: mergeById(incidentRecords, persistedIncidents),
+    equipment: mergeById(equipmentDirectory, persistedEquipment),
+    shifts: mergeById(shiftRecords, persistedShifts),
+    storageKg: safeObject(persistedState.storageKg, initialRawStorageKg),
+    movements: mergeById(rawMovements, persistedMovements),
+  }
+}
+
 export function AppDataProvider({ children }) {
-  const persistedState = safeParseStorage()
+  const persistedState = normalizePersistedState(safeParseStorage())
   const [recipesState, setRecipesState] = useState(persistedState?.recipes ?? recipes)
   const [batches, setBatches] = useState(persistedState?.batches ?? productionBatches)
   const [incidents, setIncidents] = useState(persistedState?.incidents ?? incidentRecords)

@@ -77,7 +77,7 @@ function IncidentsPage() {
       </div>
       <form
         onSubmit={handleSubmit}
-        className="grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-5"
+        className="no-print grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-5"
       >
         <input
           required
@@ -129,23 +129,23 @@ function IncidentsPage() {
       </form>
 
       <div className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Усього інцидентів</p>
           <p className="mt-1 text-2xl font-semibold text-slate-800">{incidents.length}</p>
         </div>
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">В роботі</p>
           <p className="mt-1 text-2xl font-semibold text-slate-800">
             {incidents.filter((item) => item.status === 'В роботі').length}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Критичні</p>
           <p className="mt-1 text-2xl font-semibold text-slate-800">
             {incidents.filter((item) => item.severity === 'Критична').length}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Закрито</p>
           <p className="mt-1 text-2xl font-semibold text-slate-800">
             {incidents.filter((item) => item.status === 'Закрито').length}
@@ -153,7 +153,7 @@ function IncidentsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-4">
+      <div className="no-print grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-4">
         <input
           placeholder="Пошук по обладнанню або опису"
           value={search}
@@ -188,8 +188,8 @@ function IncidentsPage() {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm">
-        <table className="min-w-full text-left text-sm text-slate-700">
+      <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm print-section">
+        <table className="print-table min-w-full text-left text-sm text-slate-700">
           <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
             <tr>
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('time')}>Час {sortArrow('time')}</th>
@@ -197,7 +197,7 @@ function IncidentsPage() {
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('description')}>Опис {sortArrow('description')}</th>
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('severity')}>Пріоритет {sortArrow('severity')}</th>
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('status')}>Статус {sortArrow('status')}</th>
-              <th className="px-4 py-3">Дії</th>
+              <th className="print-hide-col px-4 py-3">Дії</th>
             </tr>
           </thead>
           <tbody>
@@ -207,7 +207,7 @@ function IncidentsPage() {
                 <td className="px-4 py-3">{incident.equipment}</td>
                 <td className="px-4 py-3">{incident.description}</td>
                 <td className="px-4 py-3">{incident.severity || 'Середня'}</td>
-                <td className="px-4 py-3">
+                <td className="print-hide-col px-4 py-3">
                   <select
                     value={incident.status}
                     onChange={(event) => updateIncidentStatus(incident.id, event.target.value)}

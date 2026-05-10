@@ -295,8 +295,8 @@ function ShiftManagementPage() {
         />
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm">
-        <table className="min-w-full text-left text-sm text-slate-700">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm print-section">
+        <table className="print-table min-w-full text-left text-sm text-slate-700">
           <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
             <tr>
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('id')}>ID {sortArrow('id')}</th>

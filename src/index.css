@@ -77,4 +77,31 @@ body {
     background: #fff !important;
     color: #000 !important;
   }
+
+  .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #cbd5e1;
+    padding: 6px 8px;
+    vertical-align: top;
+  }
+
+  .print-hide-col {
+    display: none !important;
+  }
+
+  .print-muted {
+    color: #475569 !important;
+  }
 }

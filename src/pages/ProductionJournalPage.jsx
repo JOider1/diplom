@@ -80,18 +80,43 @@ function ProductionJournalPage() {
   const sortArrow = (key) =>
     sortConfig.key === key ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'
 
+  const totalProducedKg = useMemo(
+    () => sortedBatches.reduce((sum, item) => sum + (Number(item.feedProducedKg) || 0), 0),
+    [sortedBatches],
+  )
+  const totalRawSpentKg = useMemo(
+    () => sortedBatches.reduce((sum, item) => sum + (Number(item.rawSpentKg) || 0), 0),
+    [sortedBatches],
+  )
+  const totalCostUah = useMemo(
+    () => sortedBatches.reduce((sum, item) => sum + (Number(item.batchCostUah) || 0), 0),
+    [sortedBatches],
+  )
+
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <h3 className="text-lg font-semibold text-slate-800">Журнал виробництва</h3>
-        <button
-          type="button"
-          disabled={!activeShift}
-          onClick={() => setShowForm((prev) => !prev)}
-          className="rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-slate-300"
-        >
-          Додати партію
-        </button>
+      <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-white p-4 shadow-sm print-section">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-800">Журнал виробництва</h3>
+          <p className="print-muted text-sm">Дата друку: {new Date().toLocaleString('uk-UA')}</p>
+        </div>
+        <div className="no-print flex gap-2">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+          >
+            Роздрукувати звіт
+          </button>
+          <button
+            type="button"
+            disabled={!activeShift}
+            onClick={() => setShowForm((prev) => !prev)}
+            className="rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            Додати партію
+          </button>
+        </div>
       </div>
       {!activeShift && (
         <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
@@ -102,7 +127,7 @@ function ProductionJournalPage() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-3"
+          className="no-print grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-3"
         >
           <select
             required
@@ -146,7 +171,7 @@ function ProductionJournalPage() {
         </form>
       )}
 
-      <div className="grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-3">
+      <div className="no-print grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-3">
         <input
           placeholder="Пошук за рецептом або датою"
           value={search}
@@ -173,8 +198,24 @@ function ProductionJournalPage() {
         />
       </div>
 
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm print-section">
+          <p className="text-sm text-slate-600">Партій у вибірці</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-800">{sortedBatches.length}</p>
+        </div>
+        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm print-section">
+          <p className="text-sm text-slate-600">Вироблено, кг</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-800">{totalProducedKg.toLocaleString('uk-UA')}</p>
+        </div>
+        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm print-section">
+          <p className="text-sm text-slate-600">Собівартість, грн</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-800">{totalCostUah.toLocaleString('uk-UA')}</p>
+          <p className="print-muted mt-1 text-xs">Списано сировини: {totalRawSpentKg.toLocaleString('uk-UA')} кг</p>
+        </div>
+      </div>
+
       <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm">
-        <table className="min-w-full text-left text-sm text-slate-700">
+        <table className="print-table min-w-full text-left text-sm text-slate-700">
           <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
             <tr>
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('createdAt')}>Час {sortArrow('createdAt')}</th>
@@ -183,7 +224,7 @@ function ProductionJournalPage() {
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('rawSpentKg')}>Витрачено, кг {sortArrow('rawSpentKg')}</th>
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('feedProducedKg')}>Вироблено, кг {sortArrow('feedProducedKg')}</th>
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('batchCostUah')}>Собівартість, грн {sortArrow('batchCostUah')}</th>
-              <th className="px-4 py-3">Дії</th>
+              <th className="print-hide-col px-4 py-3">Дії</th>
             </tr>
           </thead>
           <tbody>
@@ -197,7 +238,7 @@ function ProductionJournalPage() {
                 <td className="px-4 py-3">
                   {batch.batchCostUah ? batch.batchCostUah.toLocaleString('uk-UA') : '—'}
                 </td>
-                <td className="px-4 py-3">
+                <td className="print-hide-col px-4 py-3">
                   <div className="flex gap-2">
                     <button
                       type="button"

@@ -11,6 +11,15 @@ import { useMemo, useState } from 'react'
 import { useAppData } from '../context/AppDataContext'
 import { initialRawStorageKg } from '../data/mockData'
 
+const parseDateTime = (value) => {
+  if (!value || typeof value !== 'string') {
+    return null
+  }
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const parsed = new Date(normalized)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 function DashboardPage() {
   const { storageKg, movements, batches, averageDailyConsumptionKg, addRawArrival } = useAppData()
   const [period, setPeriod] = useState('all')
@@ -22,7 +31,6 @@ function DashboardPage() {
   })
   const [arrivalError, setArrivalError] = useState('')
   const [sortConfig, setSortConfig] = useState({ key: 'time', direction: 'desc' })
-
   const cutoffDate = useMemo(() => {
     const now = new Date()
     if (period === 'week') {
@@ -38,10 +46,14 @@ function DashboardPage() {
 
   const chartData = useMemo(() => {
     const byDay = batches.reduce((acc, batch) => {
-      if (cutoffDate && new Date(batch.createdAt.replace(' ', 'T')) < cutoffDate) {
+      const batchDate = parseDateTime(batch.createdAt)
+      if (!batchDate) {
         return acc
       }
-      const day = batch.createdAt.slice(5, 10)
+      if (cutoffDate && batchDate < cutoffDate) {
+        return acc
+      }
+      const day = batch.createdAt.slice(0, 10)
       acc[day] = (acc[day] || 0) + (Number(batch.feedProducedKg) || 0)
       return acc
     }, {})
@@ -53,7 +65,13 @@ function DashboardPage() {
   const filteredMovements = useMemo(
     () =>
       movements.filter(
-        (movement) => !cutoffDate || new Date(movement.time.replace(' ', 'T')) >= cutoffDate,
+        (movement) => {
+          const movementDate = parseDateTime(movement.time)
+          if (!movementDate) {
+            return false
+          }
+          return !cutoffDate || movementDate >= cutoffDate
+        },
       ),
     [cutoffDate, movements],
   )

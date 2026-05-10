@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 const MENU_ITEMS = [
-  { to: '/dashboard', label: 'Дашборд', roles: ['admin', 'shift-manager', 'operator'] },
+  { to: '/dashboard', label: 'Головна сторінка', roles: ['admin', 'shift-manager', 'operator'] },
   { to: '/daily-overview', label: 'Зведення за день', roles: ['admin', 'shift-manager', 'operator'] },
   { to: '/shift-management', label: 'Управління змінами', roles: ['admin', 'shift-manager'] },
   {

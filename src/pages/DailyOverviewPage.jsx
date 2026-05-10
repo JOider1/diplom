@@ -49,27 +49,27 @@ function DailyOverviewPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Вироблено, кг</p>
           <p className="mt-1 text-xl font-semibold text-slate-800">{data.totalFeedKg.toLocaleString('uk-UA')}</p>
         </div>
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Списано сировини, кг</p>
           <p className="mt-1 text-xl font-semibold text-slate-800">
             {data.totalRawSpentKg.toLocaleString('uk-UA')}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Інцидентів за день</p>
           <p className="mt-1 text-xl font-semibold text-slate-800">{data.dayIncidents.length}</p>
         </div>
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">В роботі</p>
           <p className="mt-1 text-xl font-semibold text-slate-800">{data.incidentsOpen}</p>
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-800">Зміни за день</h3>
         <ul className="mt-2 space-y-1 text-sm text-slate-700">
           {data.dayShifts.length === 0 && <li>Немає записів по змінах.</li>}
@@ -81,7 +81,7 @@ function DailyOverviewPage() {
         </ul>
       </div>
 
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-800">Партії за день</h3>
         <ul className="mt-2 space-y-1 text-sm text-slate-700">
           {data.dayBatches.length === 0 && <li>Немає партій.</li>}
@@ -93,7 +93,7 @@ function DailyOverviewPage() {
         </ul>
       </div>
 
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-800">Інциденти за день</h3>
         <ul className="mt-2 space-y-1 text-sm text-slate-700">
           {data.dayIncidents.length === 0 && <li>Немає інцидентів.</li>}
@@ -105,7 +105,7 @@ function DailyOverviewPage() {
         </ul>
       </div>
 
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-800">Рух сировини за день</h3>
         <ul className="mt-2 space-y-1 text-sm text-slate-700">
           {data.dayMovements.length === 0 && <li>Немає рухів.</li>}

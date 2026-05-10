@@ -87,15 +87,15 @@ function ReportsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Продуктивність / тиждень</p>
           <p className="mt-1 text-2xl font-semibold text-slate-800">{weeklyTons} т</p>
         </div>
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Продуктивність / місяць</p>
           <p className="mt-1 text-2xl font-semibold text-slate-800">{monthlyTons} т</p>
         </div>
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Відкриті інциденти</p>
           <p className="mt-1 text-2xl font-semibold text-slate-800">
             {incidents.filter((item) => item.status === 'В роботі').length}
@@ -103,7 +103,7 @@ function ReportsPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-800">Топ інцидентів по обладнанню</h3>
         <ul className="mt-3 space-y-2 text-sm text-slate-700">
           {topIncidents.map(([equipment, count]) => (
@@ -114,7 +114,7 @@ function ReportsPage() {
         </ul>
       </div>
 
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-800">Виробництво по датах, т</h3>
         <div className="mt-4 h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -130,7 +130,7 @@ function ReportsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-800">Виробництво по рецептах, т</h3>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -152,7 +152,7 @@ function ReportsPage() {
           </ul>
         </div>
 
-        <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-800">Залишки сировини, кг</h3>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -170,7 +170,7 @@ function ReportsPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-800">Витяг з рухів сировини</h3>
         <div className="mt-4 h-64">
           <ResponsiveContainer width="100%" height="100%">
