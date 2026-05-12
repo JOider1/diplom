@@ -22,15 +22,21 @@ export function AuthProvider({ children }) {
     setRole('')
   }
 
+  const roleLabel = useMemo(
+    () => ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role ?? '—',
+    [role],
+  )
+
   const contextValue = useMemo(
     () => ({
       role,
+      roleLabel,
       isAuthenticated: Boolean(role),
       roleOptions: ROLE_OPTIONS,
       login,
       logout,
     }),
-    [role],
+    [role, roleLabel],
   )
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>

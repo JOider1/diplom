@@ -1,4 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useAuth } from './AuthContext'
+import { normalizeIncidentStatus } from '../constants/incidentStatuses'
 import {
   equipmentDirectory,
   incidentRecords,
@@ -55,27 +57,55 @@ const normalizePersistedState = (persistedState) => {
   const persistedEquipment = safeArray(persistedState.equipment, [])
   const persistedShifts = safeArray(persistedState.shifts, [])
   const persistedMovements = safeArray(persistedState.movements, [])
+  const persistedAudit = safeArray(persistedState.auditLog, [])
 
   return {
     recipes: mergeById(recipes, persistedRecipes),
     batches: mergeById(productionBatches, persistedBatches),
-    incidents: mergeById(incidentRecords, persistedIncidents),
+    incidents: mergeById(incidentRecords, persistedIncidents).map((item) => ({
+      ...item,
+      status: normalizeIncidentStatus(item.status),
+    })),
     equipment: mergeById(equipmentDirectory, persistedEquipment),
     shifts: mergeById(shiftRecords, persistedShifts),
     storageKg: safeObject(persistedState.storageKg, initialRawStorageKg),
     movements: mergeById(rawMovements, persistedMovements),
+    auditLog: persistedAudit,
   }
 }
 
 export function AppDataProvider({ children }) {
+  const { role, roleLabel } = useAuth()
   const persistedState = normalizePersistedState(safeParseStorage())
   const [recipesState, setRecipesState] = useState(persistedState?.recipes ?? recipes)
   const [batches, setBatches] = useState(persistedState?.batches ?? productionBatches)
-  const [incidents, setIncidents] = useState(persistedState?.incidents ?? incidentRecords)
+  const [incidents, setIncidents] = useState(
+    () =>
+      (persistedState?.incidents ?? incidentRecords).map((item) => ({
+        ...item,
+        status: normalizeIncidentStatus(item.status),
+      })),
+  )
   const [equipment, setEquipment] = useState(persistedState?.equipment ?? equipmentDirectory)
   const [shifts, setShifts] = useState(persistedState?.shifts ?? shiftRecords)
   const [storageKg, setStorageKg] = useState(persistedState?.storageKg ?? initialRawStorageKg)
   const [movements, setMovements] = useState(persistedState?.movements ?? rawMovements)
+  const [auditLog, setAuditLog] = useState(persistedState?.auditLog ?? [])
+
+  const appendAudit = useCallback(
+    (action, details = {}) => {
+      const entry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        at: formatDateTime(new Date()),
+        actor: roleLabel,
+        role,
+        action,
+        details,
+      }
+      setAuditLog((prev) => [entry, ...prev].slice(0, 1000))
+    },
+    [role, roleLabel],
+  )
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -91,9 +121,10 @@ export function AppDataProvider({ children }) {
         shifts,
         storageKg,
         movements,
+        auditLog,
       }),
     )
-  }, [batches, equipment, incidents, movements, recipesState, shifts, storageKg])
+  }, [auditLog, batches, equipment, incidents, movements, recipesState, shifts, storageKg])
 
   const addBatch = ({ recipeName, feedProducedKg, line }) => {
     const matchedRecipe = recipesState.find((recipe) => recipe.name === recipeName)
@@ -148,6 +179,12 @@ export function AppDataProvider({ children }) {
     setBatches((prev) => [newBatch, ...prev])
     setStorageKg(nextStorage)
     setMovements((prev) => [movement, ...prev])
+    appendAudit('ADD_BATCH', {
+      batchId: nextBatchId,
+      recipe: recipeName,
+      feedProducedKg,
+      line: line || 'Лінія 1',
+    })
     return { ok: true }
   }
 
@@ -165,8 +202,9 @@ export function AppDataProvider({ children }) {
       premix: storageKg.premix + premixDelta,
     }
     const now = formatDateTime(new Date())
+    const nextMovementId = movements.length ? Math.max(...movements.map((item) => item.id)) + 1 : 1
     const movement = {
-      id: movements.length ? Math.max(...movements.map((item) => item.id)) + 1 : 1,
+      id: nextMovementId,
       time: now,
       type: 'Надходження',
       source: source || 'Постачання',
@@ -176,6 +214,12 @@ export function AppDataProvider({ children }) {
 
     setStorageKg(nextStorage)
     setMovements((prev) => [movement, ...prev])
+    appendAudit('ADD_RAW_ARRIVAL', {
+      source: source || 'Постачання',
+      wheatKg: wheatDelta,
+      cornKg: cornDelta,
+      premixKg: premixDelta,
+    })
     return { ok: true }
   }
 
@@ -183,45 +227,83 @@ export function AppDataProvider({ children }) {
     setBatches((prev) =>
       prev.map((batch) => (batch.id === batchId ? { ...batch, ...nextValues } : batch)),
     )
+    appendAudit('UPDATE_BATCH', { batchId, patch: nextValues })
   }
 
   const deleteBatch = (batchId) => {
+    const removed = batches.find((b) => b.id === batchId)
+    if (removed) {
+      appendAudit('DELETE_BATCH', { batchId, snapshot: removed })
+    }
     setBatches((prev) => prev.filter((batch) => batch.id !== batchId))
   }
 
   const addIncident = (incident) => {
     const nextId = incidents.length ? Math.max(...incidents.map((item) => item.id)) + 1 : 1
-    setIncidents((prev) => [{ id: nextId, severity: 'Середня', ...incident }, ...prev])
+    const row = {
+      id: nextId,
+      severity: 'Середня',
+      ...incident,
+      status: normalizeIncidentStatus(incident.status),
+    }
+    setIncidents((prev) => [row, ...prev])
+    appendAudit('ADD_INCIDENT', { id: nextId, ...incident, status: row.status })
   }
 
   const updateIncidentStatus = (incidentId, status) => {
+    const next = normalizeIncidentStatus(status)
+    const prevRow = incidents.find((i) => i.id === incidentId)
+    if (prevRow && prevRow.status !== next) {
+      appendAudit('UPDATE_INCIDENT_STATUS', {
+        incidentId,
+        from: prevRow.status,
+        to: next,
+      })
+    }
     setIncidents((prev) =>
-      prev.map((incident) => (incident.id === incidentId ? { ...incident, status } : incident)),
+      prev.map((incident) =>
+        incident.id === incidentId ? { ...incident, status: next } : incident,
+      ),
     )
   }
 
   const updateIncident = (incidentId, nextValues) => {
     setIncidents((prev) =>
-      prev.map((incident) => (incident.id === incidentId ? { ...incident, ...nextValues } : incident)),
+      prev.map((incident) =>
+        incident.id === incidentId
+          ? { ...incident, ...nextValues, status: normalizeIncidentStatus(nextValues.status ?? incident.status) }
+          : incident,
+      ),
     )
+    appendAudit('UPDATE_INCIDENT', { incidentId, patch: nextValues })
   }
 
   const deleteIncident = (incidentId) => {
+    const removed = incidents.find((i) => i.id === incidentId)
+    if (removed) {
+      appendAudit('DELETE_INCIDENT', { incidentId, snapshot: removed })
+    }
     setIncidents((prev) => prev.filter((incident) => incident.id !== incidentId))
   }
 
   const addRecipe = (recipe) => {
     const nextId = `recipe-${Date.now()}`
     setRecipesState((prev) => [{ id: nextId, ...recipe }, ...prev])
+    appendAudit('ADD_RECIPE', { id: nextId, name: recipe.name })
   }
 
   const updateRecipe = (recipeId, nextValues) => {
     setRecipesState((prev) =>
       prev.map((recipe) => (recipe.id === recipeId ? { ...recipe, ...nextValues } : recipe)),
     )
+    appendAudit('UPDATE_RECIPE', { recipeId, patch: nextValues })
   }
 
   const deleteRecipe = (recipeId) => {
+    const removed = recipesState.find((r) => r.id === recipeId)
+    if (removed) {
+      appendAudit('DELETE_RECIPE', { recipeId, name: removed.name })
+    }
     setRecipesState((prev) => prev.filter((recipe) => recipe.id !== recipeId))
   }
 
@@ -259,6 +341,12 @@ export function AppDataProvider({ children }) {
       operator: operator || 'Невідомо',
     }
     setShifts((prev) => [newShift, ...prev])
+    appendAudit('OPEN_SHIFT', {
+      shiftId: nextId,
+      operator: operator || 'Невідомо',
+      notes,
+      openingData,
+    })
     return { ok: true }
   }
 
@@ -267,6 +355,7 @@ export function AppDataProvider({ children }) {
       return { ok: false, error: 'Немає відкритої зміни' }
     }
     const closedAt = formatDateTime(new Date())
+    const shiftId = activeShift.id
     setShifts((prev) =>
       prev.map((shift) =>
         shift.id === activeShift.id
@@ -274,7 +363,19 @@ export function AppDataProvider({ children }) {
           : shift,
       ),
     )
+    appendAudit('CLOSE_SHIFT', { shiftId, notes })
     return { ok: true }
+  }
+
+  const patchEquipment = (equipmentId, patch) => {
+    const old = equipment.find((item) => item.id === equipmentId)
+    if (!old) {
+      return
+    }
+    appendAudit('UPDATE_EQUIPMENT', { equipmentId, name: old.name, patch })
+    setEquipment((prev) =>
+      prev.map((item) => (item.id === equipmentId ? { ...item, ...patch } : item)),
+    )
   }
 
   const contextValue = {
@@ -286,6 +387,7 @@ export function AppDataProvider({ children }) {
     activeShift,
     storageKg,
     movements,
+    auditLog,
     averageDailyConsumptionKg,
     getRecipeCostPerTon,
     addBatch,
@@ -299,7 +401,7 @@ export function AppDataProvider({ children }) {
     updateRecipe,
     deleteRecipe,
     addRawArrival,
-    setEquipment,
+    patchEquipment,
     openShift,
     closeShift,
   }

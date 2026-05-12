@@ -21,7 +21,9 @@ function DailyOverviewPage() {
       dayMovements,
       totalFeedKg: dayBatches.reduce((sum, item) => sum + item.feedProducedKg, 0),
       totalRawSpentKg: dayBatches.reduce((sum, item) => sum + item.rawSpentKg, 0),
-      incidentsOpen: dayIncidents.filter((item) => item.status === 'В роботі').length,
+      incidentsActive: dayIncidents.filter(
+        (item) => item.status === 'В роботі' || item.status === 'На перевірці',
+      ).length,
     }
   }, [batches, incidents, movements, selectedDate, shifts])
 
@@ -64,8 +66,9 @@ function DailyOverviewPage() {
           <p className="mt-1 text-xl font-semibold text-slate-800">{data.dayIncidents.length}</p>
         </div>
         <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">В роботі</p>
-          <p className="mt-1 text-xl font-semibold text-slate-800">{data.incidentsOpen}</p>
+          <p className="text-sm text-slate-600">Активні інциденти</p>
+          <p className="mt-1 text-xl font-semibold text-slate-800">{data.incidentsActive}</p>
+          <p className="mt-1 text-xs text-slate-500">В роботі + на перевірці</p>
         </div>
       </div>
 

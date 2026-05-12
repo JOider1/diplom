@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import ConfirmModal from '../components/common/ConfirmModal'
 import { useAppData } from '../context/AppDataContext'
+import { exportRows } from '../utils/xlsxExport'
 
 const defaultBatch = {
   line: 'Лінія 1',
@@ -93,6 +94,22 @@ function ProductionJournalPage() {
     [sortedBatches],
   )
 
+  const handleExportXlsx = () => {
+    exportRows(
+      `journal-vyrobnytstva-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      'Партії',
+      sortedBatches.map((b) => ({
+        ID: b.id,
+        Час: b.createdAt,
+        Лінія: b.line || 'Лінія 1',
+        Рецепт: b.recipe,
+        'Списано_кг': b.rawSpentKg,
+        'Вироблено_кг': b.feedProducedKg,
+        'Собівартість_грн': b.batchCostUah,
+      })),
+    )
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-white p-4 shadow-sm print-section">
@@ -100,7 +117,14 @@ function ProductionJournalPage() {
           <h3 className="text-lg font-semibold text-slate-800">Журнал виробництва</h3>
           <p className="print-muted text-sm">Дата друку: {new Date().toLocaleString('uk-UA')}</p>
         </div>
-        <div className="no-print flex gap-2">
+        <div className="no-print flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleExportXlsx}
+            className="rounded-md border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800"
+          >
+            Експорт у Excel
+          </button>
           <button
             type="button"
             onClick={() => window.print()}

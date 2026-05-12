@@ -19,8 +19,8 @@ function Header() {
   return (
     <header className="no-print mb-6 flex flex-col gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
       <div>
-        <p className="text-xs uppercase tracking-widest text-slate-500">Поточна зміна</p>
-        <h2 className="text-xl font-semibold text-slate-800">Моніторинг виробництва кормів</h2>
+        <p className="text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400">Поточна зміна</p>
+        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Моніторинг виробництва кормів</h2>
       </div>
 
       <div className="flex items-center gap-3">

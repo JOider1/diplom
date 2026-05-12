@@ -14,6 +14,7 @@ import ProductionJournalPage from './pages/ProductionJournalPage'
 import RecipesPage from './pages/RecipesPage'
 import ReportsPage from './pages/ReportsPage'
 import ShiftManagementPage from './pages/ShiftManagementPage'
+import AuditLogPage from './pages/AuditLogPage'
 
 function App() {
   return (
@@ -46,6 +47,14 @@ function App() {
               <Route path="recipes" element={<RecipesPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="equipment" element={<EquipmentPage />} />
+              <Route
+                path="audit-log"
+                element={
+                  <PrivateRoute allowedRoles={['admin']}>
+                    <AuditLogPage />
+                  </PrivateRoute>
+                }
+              />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>

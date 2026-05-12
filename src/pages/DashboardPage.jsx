@@ -9,6 +9,7 @@ import {
 } from 'recharts'
 import { useMemo, useState } from 'react'
 import { useAppData } from '../context/AppDataContext'
+import { useTheme } from '../context/ThemeContext'
 import { initialRawStorageKg } from '../data/mockData'
 
 const parseDateTime = (value) => {
@@ -21,6 +22,9 @@ const parseDateTime = (value) => {
 }
 
 function DashboardPage() {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+  const axisStroke = isDark ? '#94a3b8' : '#475569'
   const { storageKg, movements, batches, averageDailyConsumptionKg, addRawArrival } = useAppData()
   const [period, setPeriod] = useState('all')
   const [arrivalForm, setArrivalForm] = useState({
@@ -64,15 +68,13 @@ function DashboardPage() {
 
   const filteredMovements = useMemo(
     () =>
-      movements.filter(
-        (movement) => {
-          const movementDate = parseDateTime(movement.time)
-          if (!movementDate) {
-            return false
-          }
-          return !cutoffDate || movementDate >= cutoffDate
-        },
-      ),
+      movements.filter((movement) => {
+        const movementDate = parseDateTime(movement.time)
+        if (!movementDate) {
+          return false
+        }
+        return !cutoffDate || movementDate >= cutoffDate
+      }),
     [cutoffDate, movements],
   )
 
@@ -109,6 +111,7 @@ function DashboardPage() {
     setArrivalError('')
     setArrivalForm({ source: '', wheatKg: '', cornKg: '', premixKg: '' })
   }
+
   const storageCards = [
     { key: 'wheat', label: 'Пшениця' },
     { key: 'corn', label: 'Кукурудза' },
@@ -117,32 +120,6 @@ function DashboardPage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-slate-800">Виробництво кормів (т)</h3>
-          <select
-            value={period}
-            onChange={(event) => setPeriod(event.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
-          >
-            <option value="week">За тиждень</option>
-            <option value="month">За місяць</option>
-            <option value="all">За весь час</option>
-          </select>
-        </div>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <XAxis dataKey="day" stroke="#475569" />
-              <YAxis stroke="#475569" />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="tons" name="Тонн/день" fill="#2f4d71" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
       <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="mb-4 text-lg font-semibold text-slate-800">Склад сировини та рух</h3>
         <form onSubmit={handleArrivalSubmit} className="mb-4 grid gap-3 md:grid-cols-5">
@@ -209,15 +186,58 @@ function DashboardPage() {
             )
           })}
         </div>
+      </div>
 
-        <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-slate-800">Виробництво кормів (т)</h3>
+          <select
+            value={period}
+            onChange={(event) => setPeriod(event.target.value)}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            <option value="week">За тиждень</option>
+            <option value="month">За місяць</option>
+            <option value="all">За весь час</option>
+          </select>
+        </div>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <XAxis dataKey="day" stroke={axisStroke} tick={{ fill: axisStroke }} />
+              <YAxis stroke={axisStroke} tick={{ fill: axisStroke }} />
+              <Tooltip
+                contentStyle={
+                  isDark
+                    ? { backgroundColor: '#1e293b', borderColor: '#475569', color: '#f1f5f9' }
+                    : undefined
+                }
+              />
+              <Legend />
+              <Bar dataKey="tons" name="Тонн/день" fill="#2f4d71" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold text-slate-800">Журнал рухів сировини</h3>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="min-w-full text-left text-sm text-slate-700">
             <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
               <tr>
-                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('time')}>Час {sortArrow('time')}</th>
-                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('type')}>Тип {sortArrow('type')}</th>
-                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('source')}>Джерело {sortArrow('source')}</th>
-                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('delta')}>Рух, кг {sortArrow('delta')}</th>
+                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('time')}>
+                  Час {sortArrow('time')}
+                </th>
+                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('type')}>
+                  Тип {sortArrow('type')}
+                </th>
+                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('source')}>
+                  Джерело {sortArrow('source')}
+                </th>
+                <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('delta')}>
+                  Рух, кг {sortArrow('delta')}
+                </th>
                 <th className="px-4 py-3">Залишок, кг</th>
               </tr>
             </thead>
@@ -231,7 +251,8 @@ function DashboardPage() {
                     Пш: {movement.deltaKg.wheat}, Кк: {movement.deltaKg.corn}, Пр: {movement.deltaKg.premix}
                   </td>
                   <td className="px-4 py-3">
-                    Пш: {movement.balanceKg.wheat}, Кк: {movement.balanceKg.corn}, Пр: {movement.balanceKg.premix}
+                    Пш: {movement.balanceKg.wheat}, Кк: {movement.balanceKg.corn}, Пр:{' '}
+                    {movement.balanceKg.premix}
                   </td>
                 </tr>
               ))}

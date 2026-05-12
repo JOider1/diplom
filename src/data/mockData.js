@@ -363,7 +363,7 @@ export const incidentRecords = [
     equipment: 'Лінія грануляції №2',
     description: 'Коливання тиску пари',
     severity: 'Критична',
-    status: 'В роботі',
+    status: 'На перевірці',
   },
   {
     id: 4,

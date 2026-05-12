@@ -14,6 +14,7 @@ const MENU_ITEMS = [
   { to: '/incidents', label: 'Журнал інцидентів', roles: ['admin', 'shift-manager', 'operator'] },
   { to: '/reports', label: 'Звіти та аналітика', roles: ['admin', 'shift-manager'] },
   { to: '/equipment', label: 'Довідник обладнання', roles: ['admin', 'shift-manager', 'operator'] },
+  { to: '/audit-log', label: 'Історія дій (Audit Log)', roles: ['admin'] },
 ]
 
 function Sidebar() {

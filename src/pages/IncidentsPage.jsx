@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import ConfirmModal from '../components/common/ConfirmModal'
+import IncidentKanbanBoard from '../components/incidents/IncidentKanbanBoard'
+import { INCIDENT_STATUSES } from '../constants/incidentStatuses'
 import { useAppData } from '../context/AppDataContext'
+import { exportRows } from '../utils/xlsxExport'
 
 const defaultIncident = {
   time: '',
@@ -19,7 +22,6 @@ function IncidentsPage() {
   const [editingId, setEditingId] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
   const [selectedSeverity, setSelectedSeverity] = useState('all')
-  const [sortConfig, setSortConfig] = useState({ key: 'time', direction: 'desc' })
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -46,27 +48,39 @@ function IncidentsPage() {
     })
   }, [dateFrom, incidents, search, selectedSeverity, selectedStatus])
 
-  const sortedIncidents = useMemo(() => {
-    const direction = sortConfig.direction === 'asc' ? 1 : -1
-    return [...filteredIncidents].sort((a, b) => {
-      const aValue = a[sortConfig.key] ?? ''
-      const bValue = b[sortConfig.key] ?? ''
-      return String(aValue).localeCompare(String(bValue), 'uk') * direction
-    })
-  }, [filteredIncidents, sortConfig])
+  const sortedForPrint = useMemo(
+    () =>
+      [...filteredIncidents].sort((a, b) =>
+        String(a.time).localeCompare(String(b.time), 'uk'),
+      ),
+    [filteredIncidents],
+  )
 
-  const handleSort = (key) => {
-    setSortConfig((prev) => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
-    }))
+  const handleExportXlsx = () => {
+    exportRows(
+      `incidents-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      'Інциденти',
+      filteredIncidents.map((i) => ({
+        id: i.id,
+        Час: i.time,
+        Обладнання: i.equipment,
+        Опис: i.description,
+        Пріоритет: i.severity || 'Середня',
+        Статус: i.status,
+      })),
+    )
   }
-  const sortArrow = (key) =>
-    sortConfig.key === key ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'
 
   return (
     <section className="space-y-4">
-      <div className="no-print flex justify-end">
+      <div className="no-print flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={handleExportXlsx}
+          className="rounded-md border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
+        >
+          Експорт у Excel
+        </button>
         <button
           type="button"
           onClick={() => window.print()}
@@ -75,6 +89,7 @@ function IncidentsPage() {
           Роздрукувати звіт
         </button>
       </div>
+
       <form
         onSubmit={handleSubmit}
         className="no-print grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-5"
@@ -107,8 +122,11 @@ function IncidentsPage() {
           onChange={(event) => setFormData((prev) => ({ ...prev, status: event.target.value }))}
           className="rounded-md border border-slate-300 px-3 py-2"
         >
-          <option>В роботі</option>
-          <option>Закрито</option>
+          {INCIDENT_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
         </select>
         <select
           value={formData.severity}
@@ -124,31 +142,42 @@ function IncidentsPage() {
           type="submit"
           className="md:col-span-5 rounded-md bg-enterprise-700 px-4 py-2 text-sm font-semibold text-white hover:bg-enterprise-800"
         >
-          Додати інцидент
+          {editingId ? 'Зберегти зміни' : 'Додати інцидент'}
         </button>
+        {editingId && (
+          <button
+            type="button"
+            className="md:col-span-5 rounded-md border border-slate-300 px-4 py-2 text-sm"
+            onClick={() => {
+              setEditingId(null)
+              setFormData(defaultIncident)
+            }}
+          >
+            Скасувати редагування
+          </button>
+        )}
       </form>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Усього інцидентів</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-800">{incidents.length}</p>
+          <p className="text-sm text-slate-600">Усього у вибірці</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-800">{filteredIncidents.length}</p>
         </div>
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">В роботі</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-800">
-            {incidents.filter((item) => item.status === 'В роботі').length}
-          </p>
-        </div>
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        {INCIDENT_STATUSES.map((status) => (
+          <div
+            key={status}
+            className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm"
+          >
+            <p className="text-sm text-slate-600">{status}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-800">
+              {filteredIncidents.filter((item) => item.status === status).length}
+            </p>
+          </div>
+        ))}
+        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm sm:col-span-2 lg:col-span-1">
           <p className="text-sm text-slate-600">Критичні</p>
           <p className="mt-1 text-2xl font-semibold text-slate-800">
-            {incidents.filter((item) => item.severity === 'Критична').length}
-          </p>
-        </div>
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Закрито</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-800">
-            {incidents.filter((item) => item.status === 'Закрито').length}
+            {filteredIncidents.filter((item) => item.severity === 'Критична').length}
           </p>
         </div>
       </div>
@@ -165,9 +194,12 @@ function IncidentsPage() {
           onChange={(event) => setSelectedStatus(event.target.value)}
           className="rounded-md border border-slate-300 px-3 py-2"
         >
-          <option value="all">Усі статуси</option>
-          <option value="В роботі">В роботі</option>
-          <option value="Закрито">Закрито</option>
+          <option value="all">Усі статуси (канбан)</option>
+          {INCIDENT_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
         </select>
         <select
           value={selectedSeverity}
@@ -188,67 +220,55 @@ function IncidentsPage() {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm print-section">
+      <div className="hidden print:block print-section">
+        <h3 className="mb-2 text-lg font-semibold text-slate-800">Інциденти (друк)</h3>
         <table className="print-table min-w-full text-left text-sm text-slate-700">
           <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
             <tr>
-              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('time')}>Час {sortArrow('time')}</th>
-              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('equipment')}>Обладнання {sortArrow('equipment')}</th>
-              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('description')}>Опис {sortArrow('description')}</th>
-              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('severity')}>Пріоритет {sortArrow('severity')}</th>
-              <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('status')}>Статус {sortArrow('status')}</th>
-              <th className="print-hide-col px-4 py-3">Дії</th>
+              <th className="px-4 py-3">Час</th>
+              <th className="px-4 py-3">Обладнання</th>
+              <th className="px-4 py-3">Опис</th>
+              <th className="px-4 py-3">Пріоритет</th>
+              <th className="px-4 py-3">Статус</th>
             </tr>
           </thead>
           <tbody>
-            {sortedIncidents.map((incident) => (
+            {sortedForPrint.map((incident) => (
               <tr key={incident.id} className="border-t border-slate-200">
                 <td className="px-4 py-3">{incident.time}</td>
                 <td className="px-4 py-3">{incident.equipment}</td>
                 <td className="px-4 py-3">{incident.description}</td>
                 <td className="px-4 py-3">{incident.severity || 'Середня'}</td>
-                <td className="print-hide-col px-4 py-3">
-                  <select
-                    value={incident.status}
-                    onChange={(event) => updateIncidentStatus(incident.id, event.target.value)}
-                    className="rounded-md border border-slate-300 px-2 py-1"
-                  >
-                    <option value="В роботі">В роботі</option>
-                    <option value="Закрито">Закрито</option>
-                  </select>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingId(incident.id)
-                        setFormData({
-                          time: incident.time.replace(' ', 'T'),
-                          equipment: incident.equipment,
-                          description: incident.description,
-                          status: incident.status,
-                          severity: incident.severity || 'Середня',
-                        })
-                      }}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-xs"
-                    >
-                      Редагувати
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteId(incident.id)}
-                      className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700"
-                    >
-                      Видалити
-                    </button>
-                  </div>
-                </td>
+                <td className="px-4 py-3">{incident.status}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <div className="no-print rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold text-slate-800">Kanban-дошка інцидентів</h3>
+        <p className="mb-4 text-sm text-slate-600">
+          Перетягніть картку між колонками, щоб змінити статус: В роботі → На перевірці → Закрито.
+        </p>
+        <IncidentKanbanBoard
+          incidents={filteredIncidents}
+          onStatusChange={updateIncidentStatus}
+          onEdit={(incident) => {
+            setEditingId(incident.id)
+            setFormData({
+              time: incident.time.replace(' ', 'T'),
+              equipment: incident.equipment,
+              description: incident.description,
+              status: incident.status,
+              severity: incident.severity || 'Середня',
+            })
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          onDelete={setDeleteId}
+        />
+      </div>
+
       {deleteId && (
         <ConfirmModal
           title="Видалити інцидент?"
