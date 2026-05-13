@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useAuth } from './AuthContext'
+import { normalizeIncidentCategory } from '../constants/incidentCategories'
 import { normalizeIncidentStatus } from '../constants/incidentStatuses'
 import {
   equipmentDirectory,
@@ -65,6 +66,7 @@ const normalizePersistedState = (persistedState) => {
     incidents: mergeById(incidentRecords, persistedIncidents).map((item) => ({
       ...item,
       status: normalizeIncidentStatus(item.status),
+      category: normalizeIncidentCategory(item.category),
     })),
     equipment: mergeById(equipmentDirectory, persistedEquipment),
     shifts: mergeById(shiftRecords, persistedShifts),
@@ -84,6 +86,7 @@ export function AppDataProvider({ children }) {
       (persistedState?.incidents ?? incidentRecords).map((item) => ({
         ...item,
         status: normalizeIncidentStatus(item.status),
+        category: normalizeIncidentCategory(item.category),
       })),
   )
   const [equipment, setEquipment] = useState(persistedState?.equipment ?? equipmentDirectory)
@@ -245,6 +248,7 @@ export function AppDataProvider({ children }) {
       severity: 'Середня',
       ...incident,
       status: normalizeIncidentStatus(incident.status),
+      category: normalizeIncidentCategory(incident.category),
     }
     setIncidents((prev) => [row, ...prev])
     appendAudit('ADD_INCIDENT', { id: nextId, ...incident, status: row.status })
@@ -271,7 +275,12 @@ export function AppDataProvider({ children }) {
     setIncidents((prev) =>
       prev.map((incident) =>
         incident.id === incidentId
-          ? { ...incident, ...nextValues, status: normalizeIncidentStatus(nextValues.status ?? incident.status) }
+          ? {
+              ...incident,
+              ...nextValues,
+              status: normalizeIncidentStatus(nextValues.status ?? incident.status),
+              category: normalizeIncidentCategory(nextValues.category ?? incident.category),
+            }
           : incident,
       ),
     )

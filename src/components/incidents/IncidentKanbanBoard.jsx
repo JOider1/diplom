@@ -9,6 +9,7 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core'
+import { INCIDENT_CATEGORY_LABELS, normalizeIncidentCategory } from '../../constants/incidentCategories'
 import { INCIDENT_STATUSES } from '../../constants/incidentStatuses'
 
 function KanbanColumn({ status, count, children }) {
@@ -62,6 +63,9 @@ function IncidentCard({ incident, onEdit, onDelete }) {
         </button>
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-xs text-slate-500 dark:text-slate-400">{incident.time}</p>
+          <p className="text-[11px] font-medium text-enterprise-800 dark:text-enterprise-300">
+            {INCIDENT_CATEGORY_LABELS[normalizeIncidentCategory(incident.category)]}
+          </p>
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{incident.equipment}</p>
           <p className="text-sm text-slate-700 dark:text-slate-200">{incident.description}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400">Пріоритет: {incident.severity || 'Середня'}</p>
@@ -91,6 +95,9 @@ function IncidentCardPreview({ incident }) {
   return (
     <div className="max-w-[280px] rounded-lg border-2 border-enterprise-600 bg-white p-3 shadow-lg dark:border-enterprise-500 dark:bg-slate-800">
       <p className="text-xs text-slate-500 dark:text-slate-400">{incident.time}</p>
+      <p className="text-[11px] font-medium text-enterprise-800 dark:text-enterprise-300">
+        {INCIDENT_CATEGORY_LABELS[normalizeIncidentCategory(incident.category)]}
+      </p>
       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{incident.equipment}</p>
       <p className="line-clamp-3 text-sm text-slate-700 dark:text-slate-200">{incident.description}</p>
     </div>

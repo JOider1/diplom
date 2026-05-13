@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { INCIDENT_CATEGORY_LABELS, normalizeIncidentCategory } from '../constants/incidentCategories'
 import { useAppData } from '../context/AppDataContext'
 
 const today = new Date().toISOString().slice(0, 10)
@@ -102,7 +103,8 @@ function DailyOverviewPage() {
           {data.dayIncidents.length === 0 && <li>Немає інцидентів.</li>}
           {data.dayIncidents.map((incident) => (
             <li key={incident.id}>
-              {incident.time} | {incident.equipment} | {incident.status}
+              {incident.time} · {INCIDENT_CATEGORY_LABELS[normalizeIncidentCategory(incident.category)]} ·{' '}
+              {incident.equipment} · {incident.status}
             </li>
           ))}
         </ul>

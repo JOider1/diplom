@@ -1,16 +1,28 @@
 import { useMemo, useState } from 'react'
 import ConfirmModal from '../components/common/ConfirmModal'
 import IncidentKanbanBoard from '../components/incidents/IncidentKanbanBoard'
+import {
+  INCIDENT_CATEGORY_EQUIPMENT,
+  INCIDENT_CATEGORY_OPTIONS,
+  normalizeIncidentCategory,
+} from '../constants/incidentCategories'
 import { INCIDENT_STATUSES } from '../constants/incidentStatuses'
 import { useAppData } from '../context/AppDataContext'
 import { exportRows } from '../utils/xlsxExport'
 
 const defaultIncident = {
   time: '',
+  category: INCIDENT_CATEGORY_EQUIPMENT,
   equipment: '',
   description: '',
   status: 'В роботі',
   severity: 'Середня',
+}
+
+const equipmentPlaceholder = 'Обладнання (назва з довідника)'
+const otherPlaceholders = {
+  workplace_safety: 'Місце / ділянка події',
+  other: "Об'єкт або зона (за потреби)",
 }
 
 function IncidentsPage() {
@@ -22,10 +34,23 @@ function IncidentsPage() {
   const [editingId, setEditingId] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
   const [selectedSeverity, setSelectedSeverity] = useState('all')
+  const [selectedCategory, setSelectedCategory] = useState('all')
+
+  const equipmentFieldPlaceholder = useMemo(() => {
+    const cat = normalizeIncidentCategory(formData.category)
+    if (cat === INCIDENT_CATEGORY_EQUIPMENT) {
+      return equipmentPlaceholder
+    }
+    return otherPlaceholders[cat] || otherPlaceholders.other
+  }, [formData.category])
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    const payload = { ...formData, time: formData.time.replace('T', ' ') }
+    const payload = {
+      ...formData,
+      time: formData.time.replace('T', ' '),
+      category: normalizeIncidentCategory(formData.category),
+    }
     if (editingId) {
       updateIncident(editingId, payload)
       setEditingId(null)
@@ -44,9 +69,14 @@ function IncidentsPage() {
       const byStatus = selectedStatus === 'all' || incident.status === selectedStatus
       const bySeverity = selectedSeverity === 'all' || incident.severity === selectedSeverity
       const byDate = !dateFrom || incident.time.slice(0, 10) >= dateFrom
-      return bySearch && byStatus && bySeverity && byDate
+      const cat = normalizeIncidentCategory(incident.category)
+      const byCategory =
+        selectedCategory === 'all' ||
+        (selectedCategory === 'non_equipment' && cat !== INCIDENT_CATEGORY_EQUIPMENT) ||
+        cat === selectedCategory
+      return bySearch && byStatus && bySeverity && byDate && byCategory
     })
-  }, [dateFrom, incidents, search, selectedSeverity, selectedStatus])
+  }, [dateFrom, incidents, search, selectedCategory, selectedSeverity, selectedStatus])
 
   const sortedForPrint = useMemo(
     () =>
@@ -63,7 +93,8 @@ function IncidentsPage() {
       filteredIncidents.map((i) => ({
         id: i.id,
         Час: i.time,
-        Обладнання: i.equipment,
+        Категорія: INCIDENT_CATEGORY_OPTIONS.find((o) => o.value === normalizeIncidentCategory(i.category))?.label,
+        'Обладнання / місце': i.equipment,
         Опис: i.description,
         Пріоритет: i.severity || 'Середня',
         Статус: i.status,
@@ -92,7 +123,7 @@ function IncidentsPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="no-print grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-5"
+        className="no-print grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-6"
       >
         <input
           required
@@ -101,9 +132,21 @@ function IncidentsPage() {
           onChange={(event) => setFormData((prev) => ({ ...prev, time: event.target.value }))}
           className="rounded-md border border-slate-300 px-3 py-2"
         />
+        <select
+          value={formData.category}
+          onChange={(event) => setFormData((prev) => ({ ...prev, category: event.target.value }))}
+          className="rounded-md border border-slate-300 px-3 py-2"
+          aria-label="Категорія інциденту"
+        >
+          {INCIDENT_CATEGORY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
         <input
           required
-          placeholder="Обладнання"
+          placeholder={equipmentFieldPlaceholder}
           value={formData.equipment}
           onChange={(event) => setFormData((prev) => ({ ...prev, equipment: event.target.value }))}
           className="rounded-md border border-slate-300 px-3 py-2"
@@ -140,14 +183,14 @@ function IncidentsPage() {
         </select>
         <button
           type="submit"
-          className="md:col-span-5 rounded-md bg-enterprise-700 px-4 py-2 text-sm font-semibold text-white hover:bg-enterprise-800"
+          className="md:col-span-6 rounded-md bg-enterprise-700 px-4 py-2 text-sm font-semibold text-white hover:bg-enterprise-800"
         >
           {editingId ? 'Зберегти зміни' : 'Додати інцидент'}
         </button>
         {editingId && (
           <button
             type="button"
-            className="md:col-span-5 rounded-md border border-slate-300 px-4 py-2 text-sm"
+            className="md:col-span-6 rounded-md border border-slate-300 px-4 py-2 text-sm"
             onClick={() => {
               setEditingId(null)
               setFormData(defaultIncident)
@@ -158,31 +201,7 @@ function IncidentsPage() {
         )}
       </form>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Усього у вибірці</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-800">{filteredIncidents.length}</p>
-        </div>
-        {INCIDENT_STATUSES.map((status) => (
-          <div
-            key={status}
-            className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm"
-          >
-            <p className="text-sm text-slate-600">{status}</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-800">
-              {filteredIncidents.filter((item) => item.status === status).length}
-            </p>
-          </div>
-        ))}
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm sm:col-span-2 lg:col-span-1">
-          <p className="text-sm text-slate-600">Критичні</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-800">
-            {filteredIncidents.filter((item) => item.severity === 'Критична').length}
-          </p>
-        </div>
-      </div>
-
-      <div className="no-print grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-4">
+      <div className="no-print grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-5">
         <input
           placeholder="Пошук по обладнанню або опису"
           value={search}
@@ -198,6 +217,20 @@ function IncidentsPage() {
           {INCIDENT_STATUSES.map((s) => (
             <option key={s} value={s}>
               {s}
+            </option>
+          ))}
+        </select>
+        <select
+          value={selectedCategory}
+          onChange={(event) => setSelectedCategory(event.target.value)}
+          className="rounded-md border border-slate-300 px-3 py-2"
+        >
+          <option value="all">Усі категорії</option>
+          <option value={INCIDENT_CATEGORY_EQUIPMENT}>Обладнання / виробництво</option>
+          <option value="non_equipment">Охорона праці та інше</option>
+          {INCIDENT_CATEGORY_OPTIONS.filter((o) => o.value !== INCIDENT_CATEGORY_EQUIPMENT).map((o) => (
+            <option key={o.value} value={o.value}>
+              Лише: {o.label}
             </option>
           ))}
         </select>
@@ -226,7 +259,8 @@ function IncidentsPage() {
           <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
             <tr>
               <th className="px-4 py-3">Час</th>
-              <th className="px-4 py-3">Обладнання</th>
+              <th className="px-4 py-3">Категорія</th>
+              <th className="px-4 py-3">Обладнання / місце</th>
               <th className="px-4 py-3">Опис</th>
               <th className="px-4 py-3">Пріоритет</th>
               <th className="px-4 py-3">Статус</th>
@@ -236,6 +270,10 @@ function IncidentsPage() {
             {sortedForPrint.map((incident) => (
               <tr key={incident.id} className="border-t border-slate-200">
                 <td className="px-4 py-3">{incident.time}</td>
+                <td className="px-4 py-3">
+                  {INCIDENT_CATEGORY_OPTIONS.find((o) => o.value === normalizeIncidentCategory(incident.category))
+                    ?.label || '—'}
+                </td>
                 <td className="px-4 py-3">{incident.equipment}</td>
                 <td className="px-4 py-3">{incident.description}</td>
                 <td className="px-4 py-3">{incident.severity || 'Середня'}</td>
@@ -249,7 +287,9 @@ function IncidentsPage() {
       <div className="no-print rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <h3 className="mb-4 text-lg font-semibold text-slate-800">Kanban-дошка інцидентів</h3>
         <p className="mb-4 text-sm text-slate-600">
-          Перетягніть картку між колонками, щоб змінити статус: В роботі → На перевірці → Закрито.
+          Перетягніть картку між колонками, щоб змінити статус: В роботі → На перевірці → Закрито. Категорія
+          (обладнання чи охорона праці) задається у формі зверху — на звіт по обладнанню потрапляють лише записи
+          категорії «Обладнання / виробництво».
         </p>
         <IncidentKanbanBoard
           incidents={filteredIncidents}
@@ -258,6 +298,7 @@ function IncidentsPage() {
             setEditingId(incident.id)
             setFormData({
               time: incident.time.replace(' ', 'T'),
+              category: normalizeIncidentCategory(incident.category),
               equipment: incident.equipment,
               description: incident.description,
               status: incident.status,

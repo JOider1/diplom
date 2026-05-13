@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { isEquipmentIncident } from '../constants/incidentCategories'
 import { useAppData } from '../context/AppDataContext'
 import { getEquipmentIncidentSummary } from '../utils/equipmentIncidentStatus'
 
@@ -55,7 +56,7 @@ function EquipmentPage() {
               <th className="px-4 py-3">Статус (довідник)</th>
               <th className="px-4 py-3">Журнал інцидентів</th>
               <th className="px-4 py-3">Наступне ТО</th>
-              <th className="px-4 py-3">Інцидентів (усього)</th>
+              <th className="px-4 py-3">Інцидентів (обладнання)</th>
             </tr>
           </thead>
           <tbody>
@@ -85,7 +86,12 @@ function EquipmentPage() {
                 </td>
                 <td className="px-4 py-3">{item.nextMaintenance}</td>
                 <td className="px-4 py-3">
-                  {incidents.filter((incident) => incident.equipment === item.name).length}
+                  {
+                    incidents.filter(
+                      (incident) =>
+                        isEquipmentIncident(incident) && incident.equipment === item.name,
+                    ).length
+                  }
                 </td>
               </tr>
             ))}

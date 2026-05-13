@@ -1,3 +1,5 @@
+import { isEquipmentIncident } from '../constants/incidentCategories'
+
 const parseIncidentTime = (time) => {
   if (!time || typeof time !== 'string') {
     return 0
@@ -17,6 +19,7 @@ export function isIncidentActive(status) {
  */
 export function getEquipmentIncidentSummary(equipmentName, incidents) {
   const list = incidents
+    .filter((i) => isEquipmentIncident(i))
     .filter((i) => (i.equipment || '').trim() === (equipmentName || '').trim())
     .sort((a, b) => parseIncidentTime(b.time) - parseIncidentTime(a.time))
 

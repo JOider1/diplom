@@ -344,6 +344,7 @@ export const incidentRecords = [
   {
     id: 1,
     time: '2026-04-27 09:15',
+    category: 'equipment',
     equipment: 'Гранулятор ГР-2',
     description: 'Перегрів підшипника приводного вузла',
     severity: 'Висока',
@@ -352,6 +353,7 @@ export const incidentRecords = [
   {
     id: 2,
     time: '2026-04-27 14:05',
+    category: 'equipment',
     equipment: 'Дозатор мікрокомпонентів',
     description: 'Нестабільна подача преміксу',
     severity: 'Середня',
@@ -360,6 +362,7 @@ export const incidentRecords = [
   {
     id: 3,
     time: '2026-05-01 11:20',
+    category: 'equipment',
     equipment: 'Лінія грануляції №2',
     description: 'Коливання тиску пари',
     severity: 'Критична',
@@ -368,10 +371,20 @@ export const incidentRecords = [
   {
     id: 4,
     time: '2026-05-02 16:10',
+    category: 'equipment',
     equipment: 'Елеватор ЕЛ-1',
     description: 'Підвищений шум редуктора',
     severity: 'Низька',
     status: 'Закрито',
+  },
+  {
+    id: 5,
+    time: '2026-05-03 10:40',
+    category: 'workplace_safety',
+    equipment: 'Цех змішування, лінія 1',
+    description: 'Легке травмування пальця при роботі з шнеком (надано першу допомогу)',
+    severity: 'Висока',
+    status: 'В роботі',
   },
 ]
 
