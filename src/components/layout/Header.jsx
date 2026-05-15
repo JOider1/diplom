@@ -3,10 +3,10 @@ import { useAppData } from '../../context/AppDataContext'
 import { useTheme } from '../../context/ThemeContext'
 
 function Header() {
-  const { role, logout, roleOptions } = useAuth()
+  const { role, logout, roleOptions, displayName, roleLabel: authRoleLabel } = useAuth()
   const { storageKg, averageDailyConsumptionKg } = useAppData()
   const { theme, toggleTheme } = useTheme()
-  const roleLabel = roleOptions.find((option) => option.value === role)?.label || 'Невідома роль'
+  const roleLabel = authRoleLabel || roleOptions.find((option) => option.value === role)?.label || 'Невідома роль'
   const criticalRawCount = Object.keys(storageKg).reduce((count, key) => {
     const daily = averageDailyConsumptionKg[key] || 0
     if (!daily) {
@@ -36,7 +36,10 @@ function Header() {
         >
           {theme === 'dark' ? 'Світла тема' : 'Темна тема'}
         </button>
-        <p className="text-sm font-medium text-slate-700">{roleLabel}</p>
+        <div className="text-right">
+          <p className="text-sm font-medium text-slate-700">{displayName || roleLabel}</p>
+          <p className="text-xs text-slate-500">{roleLabel}</p>
+        </div>
         <button
           type="button"
           onClick={logout}

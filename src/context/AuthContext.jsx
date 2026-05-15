@@ -1,42 +1,65 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { ROLE_OPTIONS } from '../data/users'
 
 const AuthContext = createContext(null)
-const STORAGE_KEY = 'diplom-auth-role'
+const STORAGE_KEY = 'diplom-auth-session'
+const LEGACY_KEY = 'diplom-auth-role'
 
-const ROLE_OPTIONS = [
-  { label: 'Адміністратор', value: 'admin' },
-  { label: 'Менеджер зміни', value: 'shift-manager' },
-  { label: 'Оператор', value: 'operator' },
-]
+function readSession() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
 
 export function AuthProvider({ children }) {
-  const [role, setRole] = useState(() => localStorage.getItem(STORAGE_KEY) || '')
+  const [session, setSession] = useState(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem(LEGACY_KEY)) {
+      localStorage.removeItem(LEGACY_KEY)
+    }
+    return readSession()
+  })
 
-  const login = (nextRole) => {
-    localStorage.setItem(STORAGE_KEY, nextRole)
-    setRole(nextRole)
-  }
+  const login = useCallback((user) => {
+    const nextSession = {
+      userId: user.id,
+      role: user.role,
+      displayName: user.displayName,
+      login: user.login,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSession))
+    setSession(nextSession)
+    return { ok: true }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
-    setRole('')
-  }
+    setSession(null)
+  }, [])
 
   const roleLabel = useMemo(
-    () => ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role ?? '—',
-    [role],
+    () => ROLE_OPTIONS.find((option) => option.value === session?.role)?.label ?? '—',
+    [session?.role],
   )
 
   const contextValue = useMemo(
     () => ({
-      role,
+      userId: session?.userId ?? '',
+      role: session?.role ?? '',
+      displayName: session?.displayName ?? '',
+      userLogin: session?.login ?? '',
       roleLabel,
-      isAuthenticated: Boolean(role),
+      isAuthenticated: Boolean(session?.userId),
       roleOptions: ROLE_OPTIONS,
       login,
       logout,
     }),
-    [role, roleLabel],
+    [login, logout, roleLabel, session],
   )
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>

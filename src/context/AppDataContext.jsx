@@ -11,6 +11,7 @@ import {
   recipes,
   shiftRecords,
 } from '../data/mockData'
+import { initialUsers } from '../data/users'
 
 const AppDataContext = createContext(null)
 const RAW_KEYS = ['wheat', 'corn', 'premix']
@@ -59,8 +60,10 @@ const normalizePersistedState = (persistedState) => {
   const persistedShifts = safeArray(persistedState.shifts, [])
   const persistedMovements = safeArray(persistedState.movements, [])
   const persistedAudit = safeArray(persistedState.auditLog, [])
+  const persistedUsers = safeArray(persistedState.users, [])
 
   return {
+    users: mergeById(initialUsers, persistedUsers),
     recipes: mergeById(recipes, persistedRecipes),
     batches: mergeById(productionBatches, persistedBatches),
     incidents: mergeById(incidentRecords, persistedIncidents).map((item) => ({
@@ -77,7 +80,7 @@ const normalizePersistedState = (persistedState) => {
 }
 
 export function AppDataProvider({ children }) {
-  const { role, roleLabel } = useAuth()
+  const { role, roleLabel, displayName } = useAuth()
   const persistedState = normalizePersistedState(safeParseStorage())
   const [recipesState, setRecipesState] = useState(persistedState?.recipes ?? recipes)
   const [batches, setBatches] = useState(persistedState?.batches ?? productionBatches)
@@ -94,20 +97,21 @@ export function AppDataProvider({ children }) {
   const [storageKg, setStorageKg] = useState(persistedState?.storageKg ?? initialRawStorageKg)
   const [movements, setMovements] = useState(persistedState?.movements ?? rawMovements)
   const [auditLog, setAuditLog] = useState(persistedState?.auditLog ?? [])
+  const [users, setUsers] = useState(persistedState?.users ?? initialUsers)
 
   const appendAudit = useCallback(
     (action, details = {}) => {
       const entry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         at: formatDateTime(new Date()),
-        actor: roleLabel,
+        actor: displayName || roleLabel,
         role,
         action,
         details,
       }
       setAuditLog((prev) => [entry, ...prev].slice(0, 1000))
     },
-    [role, roleLabel],
+    [displayName, role, roleLabel],
   )
 
   useEffect(() => {
@@ -125,9 +129,76 @@ export function AppDataProvider({ children }) {
         storageKg,
         movements,
         auditLog,
+        users,
       }),
     )
-  }, [auditLog, batches, equipment, incidents, movements, recipesState, shifts, storageKg])
+  }, [auditLog, batches, equipment, incidents, movements, recipesState, shifts, storageKg, users])
+
+  const authenticateUser = (login, password) => {
+    const normalizedLogin = login.trim().toLowerCase()
+    const user = users.find(
+      (item) => item.active && item.login.toLowerCase() === normalizedLogin && item.password === password,
+    )
+    if (!user) {
+      return { ok: false, error: 'Невірний логін або пароль' }
+    }
+    return { ok: true, user }
+  }
+
+  const addUser = (payload) => {
+    const login = payload.login?.trim()
+    if (!login) {
+      return { ok: false, error: 'Вкажіть логін' }
+    }
+    if (users.some((item) => item.login.toLowerCase() === login.toLowerCase())) {
+      return { ok: false, error: 'Користувач з таким логіном уже існує' }
+    }
+    const nextUser = {
+      id: `user-${Date.now()}`,
+      login,
+      password: payload.password || 'changeme',
+      displayName: payload.displayName?.trim() || login,
+      role: payload.role || 'operator',
+      active: true,
+    }
+    setUsers((prev) => [nextUser, ...prev])
+    appendAudit('ADD_USER', { userId: nextUser.id, login: nextUser.login, role: nextUser.role })
+    return { ok: true, user: nextUser }
+  }
+
+  const updateUser = (userId, patch) => {
+    const existing = users.find((item) => item.id === userId)
+    if (!existing) {
+      return { ok: false, error: 'Користувача не знайдено' }
+    }
+    const nextLogin = patch.login?.trim()
+    if (
+      nextLogin &&
+      users.some((item) => item.id !== userId && item.login.toLowerCase() === nextLogin.toLowerCase())
+    ) {
+      return { ok: false, error: 'Логін уже зайнятий' }
+    }
+    setUsers((prev) =>
+      prev.map((item) =>
+        item.id === userId
+          ? {
+              ...item,
+              ...patch,
+              login: nextLogin || item.login,
+              displayName: patch.displayName?.trim() || item.displayName,
+            }
+          : item,
+      ),
+    )
+    appendAudit('UPDATE_USER', { userId, patch })
+    return { ok: true }
+  }
+
+  const setUserActive = (userId, active) => {
+    setUsers((prev) => prev.map((item) => (item.id === userId ? { ...item, active } : item)))
+    appendAudit(active ? 'ACTIVATE_USER' : 'DEACTIVATE_USER', { userId })
+    return { ok: true }
+  }
 
   const addBatch = ({ recipeName, feedProducedKg, line }) => {
     const matchedRecipe = recipesState.find((recipe) => recipe.name === recipeName)
@@ -388,6 +459,11 @@ export function AppDataProvider({ children }) {
   }
 
   const contextValue = {
+    users,
+    authenticateUser,
+    addUser,
+    updateUser,
+    setUserActive,
     recipes: recipesState,
     batches,
     incidents,

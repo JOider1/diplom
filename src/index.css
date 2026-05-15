@@ -188,4 +188,24 @@ body {
   .print-muted {
     color: #475569 !important;
   }
+
+  .screen-only-charts {
+    display: none !important;
+  }
+
+  .screen-only-table {
+    display: none !important;
+  }
+
+  .report-print-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #2f4d71;
+  }
+
+  .print-section {
+    border: 1px solid #cbd5e1 !important;
+    margin-bottom: 12px;
+    padding: 12px !important;
+  }
 }
