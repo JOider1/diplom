@@ -3,388 +3,170 @@ import { useAuth } from './AuthContext'
 import { normalizeIncidentCategory } from '../constants/incidentCategories'
 import { normalizeIncidentStatus } from '../constants/incidentStatuses'
 import {
-  equipmentDirectory,
-  incidentRecords,
-  initialRawStorageKg,
-  productionBatches,
-  rawMovements,
-  recipes,
-  shiftRecords,
-} from '../data/mockData'
-import { initialUsers } from '../data/users'
+  fetchAll,
+  fetchAuditLog,
+  writeAudit,
+  insertRecipe,
+  patchRecipe,
+  removeRecipe,
+  insertEquipment,
+  patchEquipmentRow,
+  removeEquipment,
+  rpcAddBatch,
+  rpcUpdateBatch,
+  removeBatch,
+  rpcAddRawArrival,
+  insertIncident,
+  patchIncident,
+  removeIncident,
+  insertShift,
+  patchShiftClose,
+  rpcAppCreateUser,
+  rpcAppUpdateUser,
+  rpcAppSetPassword,
+  rpcAppSetActive,
+  rpcAppDeleteUser,
+} from '../lib/db'
 
 const AppDataContext = createContext(null)
 const RAW_KEYS = ['wheat', 'corn', 'premix']
 const KG_PER_TON = 1000
-const STORAGE_KEY = 'diplom-app-data'
-
-const formatDateTime = (date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate(),
-  ).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(
-    2,
-    '0',
-  )}`
-
-const safeParseStorage = () => {
-  if (typeof window === 'undefined') {
-    return null
-  }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
-const normalizePersistedState = (persistedState) => {
-  if (!persistedState || typeof persistedState !== 'object') {
-    return null
-  }
-
-  const safeArray = (value, fallback) => (Array.isArray(value) ? value : fallback)
-  const safeObject = (value, fallback) =>
-    value && typeof value === 'object' && !Array.isArray(value) ? value : fallback
-  const mergeById = (fallback, persisted) => {
-    const nextMap = new Map()
-    fallback.forEach((item) => nextMap.set(item.id, item))
-    persisted.forEach((item) => nextMap.set(item.id, item))
-    return Array.from(nextMap.values())
-  }
-
-  const persistedRecipes = safeArray(persistedState.recipes, [])
-  const persistedBatches = safeArray(persistedState.batches, [])
-  const persistedIncidents = safeArray(persistedState.incidents, [])
-  const persistedEquipment = safeArray(persistedState.equipment, [])
-  const persistedShifts = safeArray(persistedState.shifts, [])
-  const persistedMovements = safeArray(persistedState.movements, [])
-  const persistedAudit = safeArray(persistedState.auditLog, [])
-  const persistedUsers = safeArray(persistedState.users, [])
-
-  return {
-    users: mergeById(initialUsers, persistedUsers),
-    recipes: mergeById(recipes, persistedRecipes),
-    batches: mergeById(productionBatches, persistedBatches),
-    incidents: mergeById(incidentRecords, persistedIncidents).map((item) => ({
-      ...item,
-      status: normalizeIncidentStatus(item.status),
-      category: normalizeIncidentCategory(item.category),
-    })),
-    equipment: mergeById(equipmentDirectory, persistedEquipment),
-    shifts: mergeById(shiftRecords, persistedShifts),
-    storageKg: safeObject(persistedState.storageKg, initialRawStorageKg),
-    movements: mergeById(rawMovements, persistedMovements),
-    auditLog: persistedAudit,
-  }
-}
 
 export function AppDataProvider({ children }) {
-  const { role, roleLabel, displayName } = useAuth()
-  const persistedState = normalizePersistedState(safeParseStorage())
-  const [recipesState, setRecipesState] = useState(persistedState?.recipes ?? recipes)
-  const [batches, setBatches] = useState(persistedState?.batches ?? productionBatches)
-  const [incidents, setIncidents] = useState(
-    () =>
-      (persistedState?.incidents ?? incidentRecords).map((item) => ({
-        ...item,
-        status: normalizeIncidentStatus(item.status),
-        category: normalizeIncidentCategory(item.category),
-      })),
-  )
-  const [equipment, setEquipment] = useState(persistedState?.equipment ?? equipmentDirectory)
-  const [shifts, setShifts] = useState(persistedState?.shifts ?? shiftRecords)
-  const [storageKg, setStorageKg] = useState(persistedState?.storageKg ?? initialRawStorageKg)
-  const [movements, setMovements] = useState(persistedState?.movements ?? rawMovements)
-  const [auditLog, setAuditLog] = useState(persistedState?.auditLog ?? [])
-  const [users, setUsers] = useState(persistedState?.users ?? initialUsers)
+  const { role, roleLabel, displayName, isAuthenticated, authReady } = useAuth()
+  const [recipesState, setRecipesState] = useState([])
+  const [batches, setBatches] = useState([])
+  const [incidents, setIncidents] = useState([])
+  const [equipment, setEquipment] = useState([])
+  const [shifts, setShifts] = useState([])
+  const [storageKg, setStorageKg] = useState({ wheat: 0, corn: 0, premix: 0 })
+  const [movements, setMovements] = useState([])
+  const [users, setUsers] = useState([])
+  const [auditLog, setAuditLog] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
+  // ── initial load з Supabase ──
+  const refreshAll = useCallback(async () => {
+    if (!isAuthenticated) return
+    setLoading(true)
+    setError('')
+    try {
+      const data = await fetchAll()
+      setRecipesState(data.recipes)
+      setEquipment(data.equipment)
+      setShifts(data.shifts)
+      setBatches(data.batches)
+      setIncidents(
+        data.incidents.map((i) => ({
+          ...i,
+          status: normalizeIncidentStatus(i.status),
+          category: normalizeIncidentCategory(i.category),
+        })),
+      )
+      setMovements(data.movements)
+      setStorageKg(data.storageKg)
+      setUsers(data.users)
+      if (data.errors && data.errors.length) {
+        setError(data.errors.join(' · '))
+      }
+    } catch (e) {
+      console.error('[AppData] fetchAll failed', e)
+      setError(e?.message || String(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  // audit log завантажуємо окремо (admin only)
+  const refreshAuditLog = useCallback(async () => {
+    if (!isAuthenticated || role !== 'admin') return
+    try {
+      const log = await fetchAuditLog()
+      setAuditLog(log)
+    } catch (e) {
+      console.error('[AppData] fetchAuditLog failed', e)
+    }
+  }, [isAuthenticated, role])
+
+  useEffect(() => {
+    if (authReady && isAuthenticated) {
+      refreshAll()
+    }
+    if (!isAuthenticated) {
+      setRecipesState([])
+      setBatches([])
+      setIncidents([])
+      setEquipment([])
+      setShifts([])
+      setStorageKg({ wheat: 0, corn: 0, premix: 0 })
+      setMovements([])
+      setUsers([])
+      setAuditLog([])
+    }
+  }, [authReady, isAuthenticated, refreshAll])
+
+  useEffect(() => {
+    refreshAuditLog()
+  }, [refreshAuditLog])
+
+  // ── audit helper ──
+  // Пише в БД + оптимістично пушить у локальний state, щоб admin одразу
+  // бачив свою дію в журналі без ручного refresh.
   const appendAudit = useCallback(
     (action, details = {}) => {
-      const entry = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        at: formatDateTime(new Date()),
-        actor: displayName || roleLabel,
+      const actor = displayName || roleLabel
+      const optimistic = {
+        id: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        at: new Date().toLocaleString('sv-SE').slice(0, 16), // "YYYY-MM-DD HH:MM"
+        actor,
         role,
         action,
         details,
       }
-      setAuditLog((prev) => [entry, ...prev].slice(0, 1000))
+      if (role === 'admin') {
+        setAuditLog((prev) => [optimistic, ...prev].slice(0, 500))
+      }
+      writeAudit({ actor, role, action, details }).catch((e) =>
+        console.warn('[audit] insert failed', e),
+      )
     },
     [displayName, role, roleLabel],
   )
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
+  // ── recipes ──
+  const addRecipe = async (recipe) => {
+    try {
+      const created = await insertRecipe(recipe)
+      setRecipesState((prev) => [created, ...prev])
+      appendAudit('ADD_RECIPE', { id: created.id, name: created.name })
+      return { ok: true, recipe: created }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
     }
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        recipes: recipesState,
-        batches,
-        incidents,
-        equipment,
-        shifts,
-        storageKg,
-        movements,
-        auditLog,
-        users,
-      }),
-    )
-  }, [auditLog, batches, equipment, incidents, movements, recipesState, shifts, storageKg, users])
-
-  const authenticateUser = (login, password) => {
-    const normalizedLogin = login.trim().toLowerCase()
-    const user = users.find(
-      (item) => item.active && item.login.toLowerCase() === normalizedLogin && item.password === password,
-    )
-    if (!user) {
-      return { ok: false, error: 'Невірний логін або пароль' }
-    }
-    return { ok: true, user }
   }
 
-  const addUser = (payload) => {
-    const login = payload.login?.trim()
-    if (!login) {
-      return { ok: false, error: 'Вкажіть логін' }
+  const updateRecipe = async (recipeId, nextValues) => {
+    try {
+      const updated = await patchRecipe(recipeId, nextValues)
+      setRecipesState((prev) => prev.map((r) => (r.id === recipeId ? updated : r)))
+      appendAudit('UPDATE_RECIPE', { recipeId, patch: nextValues })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
     }
-    if (users.some((item) => item.login.toLowerCase() === login.toLowerCase())) {
-      return { ok: false, error: 'Користувач з таким логіном уже існує' }
-    }
-    const nextUser = {
-      id: `user-${Date.now()}`,
-      login,
-      password: payload.password || 'changeme',
-      displayName: payload.displayName?.trim() || login,
-      role: payload.role || 'operator',
-      active: true,
-    }
-    setUsers((prev) => [nextUser, ...prev])
-    appendAudit('ADD_USER', { userId: nextUser.id, login: nextUser.login, role: nextUser.role })
-    return { ok: true, user: nextUser }
   }
 
-  const updateUser = (userId, patch) => {
-    const existing = users.find((item) => item.id === userId)
-    if (!existing) {
-      return { ok: false, error: 'Користувача не знайдено' }
-    }
-    const nextLogin = patch.login?.trim()
-    if (
-      nextLogin &&
-      users.some((item) => item.id !== userId && item.login.toLowerCase() === nextLogin.toLowerCase())
-    ) {
-      return { ok: false, error: 'Логін уже зайнятий' }
-    }
-    setUsers((prev) =>
-      prev.map((item) =>
-        item.id === userId
-          ? {
-              ...item,
-              ...patch,
-              login: nextLogin || item.login,
-              displayName: patch.displayName?.trim() || item.displayName,
-            }
-          : item,
-      ),
-    )
-    appendAudit('UPDATE_USER', { userId, patch })
-    return { ok: true }
-  }
-
-  const setUserActive = (userId, active) => {
-    setUsers((prev) => prev.map((item) => (item.id === userId ? { ...item, active } : item)))
-    appendAudit(active ? 'ACTIVATE_USER' : 'DEACTIVATE_USER', { userId })
-    return { ok: true }
-  }
-
-  const addBatch = ({ recipeName, feedProducedKg, line }) => {
-    const matchedRecipe = recipesState.find((recipe) => recipe.name === recipeName)
-    if (!matchedRecipe) {
-      return { ok: false, error: 'Рецепт не знайдено' }
-    }
-
-    const tons = feedProducedKg / KG_PER_TON
-    const wheatDelta = Math.round(matchedRecipe.consumptionKgPerTon.wheat * tons)
-    const cornDelta = Math.round(matchedRecipe.consumptionKgPerTon.corn * tons)
-    const premixDelta = Math.round(matchedRecipe.consumptionKgPerTon.premix * tons)
-    const rawSpentKg = wheatDelta + cornDelta + premixDelta
-    const costPerTon =
-      (matchedRecipe.consumptionKgPerTon.wheat / KG_PER_TON) * matchedRecipe.supplierPricesPerTonUah.wheat +
-      (matchedRecipe.consumptionKgPerTon.corn / KG_PER_TON) * matchedRecipe.supplierPricesPerTonUah.corn +
-      (matchedRecipe.consumptionKgPerTon.premix / KG_PER_TON) * matchedRecipe.supplierPricesPerTonUah.premix
-    const batchCostUah = Math.round(costPerTon * tons)
-
-    const nextStorage = {
-      wheat: storageKg.wheat - wheatDelta,
-      corn: storageKg.corn - cornDelta,
-      premix: storageKg.premix - premixDelta,
-    }
-
-    if (Object.values(nextStorage).some((value) => value < 0)) {
-      return { ok: false, error: 'Недостатньо сировини на складі для цього обсягу партії' }
-    }
-
-    const now = new Date()
-    const createdAt = formatDateTime(now)
-    const nextBatchId = batches.length ? Math.max(...batches.map((batch) => batch.id)) + 1 : 1
-
-    const newBatch = {
-      id: nextBatchId,
-      createdAt,
-      line: line || 'Лінія 1',
-      recipe: recipeName,
-      rawSpentKg,
-      feedProducedKg,
-      batchCostUah,
-    }
-
-    const movement = {
-      id: movements.length ? Math.max(...movements.map((item) => item.id)) + 1 : 1,
-      time: createdAt,
-      type: 'Списання',
-      source: `Партія #${nextBatchId}`,
-      deltaKg: { wheat: -wheatDelta, corn: -cornDelta, premix: -premixDelta },
-      balanceKg: nextStorage,
-    }
-
-    setBatches((prev) => [newBatch, ...prev])
-    setStorageKg(nextStorage)
-    setMovements((prev) => [movement, ...prev])
-    appendAudit('ADD_BATCH', {
-      batchId: nextBatchId,
-      recipe: recipeName,
-      feedProducedKg,
-      line: line || 'Лінія 1',
-    })
-    return { ok: true }
-  }
-
-  const addRawArrival = ({ source, wheatKg, cornKg, premixKg }) => {
-    const wheatDelta = Number(wheatKg) || 0
-    const cornDelta = Number(cornKg) || 0
-    const premixDelta = Number(premixKg) || 0
-    if (wheatDelta <= 0 && cornDelta <= 0 && premixDelta <= 0) {
-      return { ok: false, error: 'Вкажіть обсяг хоча б для однієї позиції сировини' }
-    }
-
-    const nextStorage = {
-      wheat: storageKg.wheat + wheatDelta,
-      corn: storageKg.corn + cornDelta,
-      premix: storageKg.premix + premixDelta,
-    }
-    const now = formatDateTime(new Date())
-    const nextMovementId = movements.length ? Math.max(...movements.map((item) => item.id)) + 1 : 1
-    const movement = {
-      id: nextMovementId,
-      time: now,
-      type: 'Надходження',
-      source: source || 'Постачання',
-      deltaKg: { wheat: wheatDelta, corn: cornDelta, premix: premixDelta },
-      balanceKg: nextStorage,
-    }
-
-    setStorageKg(nextStorage)
-    setMovements((prev) => [movement, ...prev])
-    appendAudit('ADD_RAW_ARRIVAL', {
-      source: source || 'Постачання',
-      wheatKg: wheatDelta,
-      cornKg: cornDelta,
-      premixKg: premixDelta,
-    })
-    return { ok: true }
-  }
-
-  const updateBatch = (batchId, nextValues) => {
-    setBatches((prev) =>
-      prev.map((batch) => (batch.id === batchId ? { ...batch, ...nextValues } : batch)),
-    )
-    appendAudit('UPDATE_BATCH', { batchId, patch: nextValues })
-  }
-
-  const deleteBatch = (batchId) => {
-    const removed = batches.find((b) => b.id === batchId)
-    if (removed) {
-      appendAudit('DELETE_BATCH', { batchId, snapshot: removed })
-    }
-    setBatches((prev) => prev.filter((batch) => batch.id !== batchId))
-  }
-
-  const addIncident = (incident) => {
-    const nextId = incidents.length ? Math.max(...incidents.map((item) => item.id)) + 1 : 1
-    const row = {
-      id: nextId,
-      severity: 'Середня',
-      ...incident,
-      status: normalizeIncidentStatus(incident.status),
-      category: normalizeIncidentCategory(incident.category),
-    }
-    setIncidents((prev) => [row, ...prev])
-    appendAudit('ADD_INCIDENT', { id: nextId, ...incident, status: row.status })
-  }
-
-  const updateIncidentStatus = (incidentId, status) => {
-    const next = normalizeIncidentStatus(status)
-    const prevRow = incidents.find((i) => i.id === incidentId)
-    if (prevRow && prevRow.status !== next) {
-      appendAudit('UPDATE_INCIDENT_STATUS', {
-        incidentId,
-        from: prevRow.status,
-        to: next,
-      })
-    }
-    setIncidents((prev) =>
-      prev.map((incident) =>
-        incident.id === incidentId ? { ...incident, status: next } : incident,
-      ),
-    )
-  }
-
-  const updateIncident = (incidentId, nextValues) => {
-    setIncidents((prev) =>
-      prev.map((incident) =>
-        incident.id === incidentId
-          ? {
-              ...incident,
-              ...nextValues,
-              status: normalizeIncidentStatus(nextValues.status ?? incident.status),
-              category: normalizeIncidentCategory(nextValues.category ?? incident.category),
-            }
-          : incident,
-      ),
-    )
-    appendAudit('UPDATE_INCIDENT', { incidentId, patch: nextValues })
-  }
-
-  const deleteIncident = (incidentId) => {
-    const removed = incidents.find((i) => i.id === incidentId)
-    if (removed) {
-      appendAudit('DELETE_INCIDENT', { incidentId, snapshot: removed })
-    }
-    setIncidents((prev) => prev.filter((incident) => incident.id !== incidentId))
-  }
-
-  const addRecipe = (recipe) => {
-    const nextId = `recipe-${Date.now()}`
-    setRecipesState((prev) => [{ id: nextId, ...recipe }, ...prev])
-    appendAudit('ADD_RECIPE', { id: nextId, name: recipe.name })
-  }
-
-  const updateRecipe = (recipeId, nextValues) => {
-    setRecipesState((prev) =>
-      prev.map((recipe) => (recipe.id === recipeId ? { ...recipe, ...nextValues } : recipe)),
-    )
-    appendAudit('UPDATE_RECIPE', { recipeId, patch: nextValues })
-  }
-
-  const deleteRecipe = (recipeId) => {
+  const deleteRecipe = async (recipeId) => {
     const removed = recipesState.find((r) => r.id === recipeId)
-    if (removed) {
-      appendAudit('DELETE_RECIPE', { recipeId, name: removed.name })
+    try {
+      await removeRecipe(recipeId)
+      setRecipesState((prev) => prev.filter((r) => r.id !== recipeId))
+      if (removed) appendAudit('DELETE_RECIPE', { recipeId, name: removed.name })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
     }
-    setRecipesState((prev) => prev.filter((recipe) => recipe.id !== recipeId))
   }
 
   const getRecipeCostPerTon = (recipe) =>
@@ -395,75 +177,315 @@ export function AppDataProvider({ children }) {
       0,
     )
 
+  // ── batches ──
+  const addBatch = async ({ recipeName, feedProducedKg, line }) => {
+    try {
+      const created = await rpcAddBatch({ recipeName, feedProducedKg, line })
+      // підтягнути зміни складу і рух — простіше зробити повний refresh
+      await refreshAll()
+      appendAudit('ADD_BATCH', { batchId: created.id, recipe: recipeName, feedProducedKg, line })
+      return { ok: true }
+    } catch (e) {
+      const msg = e?.message || String(e)
+      return { ok: false, error: msg.includes('Недостатньо') ? msg : msg }
+    }
+  }
+
+  const updateBatch = async (batchId, nextValues) => {
+    const old = batches.find((b) => b.id === batchId)
+    if (!old) return { ok: false, error: 'Партію не знайдено' }
+    try {
+      await rpcUpdateBatch(batchId, {
+        recipeName: nextValues.recipe ?? old.recipe,
+        feedProducedKg: nextValues.feedProducedKg ?? old.feedProducedKg,
+        line: nextValues.line ?? old.line,
+      })
+      await refreshAll()
+      appendAudit('UPDATE_BATCH', { batchId, patch: nextValues })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  const deleteBatch = async (batchId) => {
+    const removed = batches.find((b) => b.id === batchId)
+    try {
+      await removeBatch(batchId)
+      setBatches((prev) => prev.filter((b) => b.id !== batchId))
+      if (removed) appendAudit('DELETE_BATCH', { batchId, snapshot: removed })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  // ── raw arrival ──
+  const addRawArrival = async ({ source, wheatKg, cornKg, premixKg }) => {
+    try {
+      await rpcAddRawArrival({ source, wheatKg, cornKg, premixKg })
+      await refreshAll()
+      appendAudit('ADD_RAW_ARRIVAL', {
+        source: source || 'Постачання',
+        wheatKg: Number(wheatKg) || 0,
+        cornKg: Number(cornKg) || 0,
+        premixKg: Number(premixKg) || 0,
+      })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  // ── incidents ──
+  const addIncident = async (incident) => {
+    try {
+      const created = await insertIncident(incident)
+      const normalized = {
+        ...created,
+        status: normalizeIncidentStatus(created.status),
+        category: normalizeIncidentCategory(created.category),
+      }
+      setIncidents((prev) => [normalized, ...prev])
+      appendAudit('ADD_INCIDENT', { id: created.id, ...incident, status: normalized.status })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  const updateIncidentStatus = async (incidentId, status) => {
+    const next = normalizeIncidentStatus(status)
+    const prevRow = incidents.find((i) => i.id === incidentId)
+    if (!prevRow) return
+    if (prevRow.status === next) return
+
+    // 1) Оптимістично оновлюємо UI одразу — щоб картка одразу переїхала
+    setIncidents((prev) =>
+      prev.map((i) => (i.id === incidentId ? { ...i, status: next } : i)),
+    )
+    appendAudit('UPDATE_INCIDENT_STATUS', { incidentId, from: prevRow.status, to: next })
+
+    // 2) Намагаємось зберегти у БД; при помилці — відкочуємо
+    try {
+      const updated = await patchIncident(incidentId, { status: next })
+      setIncidents((prev) =>
+        prev.map((i) =>
+          i.id === incidentId
+            ? {
+                ...updated,
+                status: normalizeIncidentStatus(updated.status),
+                category: normalizeIncidentCategory(updated.category),
+              }
+            : i,
+        ),
+      )
+    } catch (e) {
+      console.error('[incidents] оновлення статусу не вдалося, відкат:', e)
+      setIncidents((prev) =>
+        prev.map((i) => (i.id === incidentId ? { ...i, status: prevRow.status } : i)),
+      )
+      setError(
+        `Не вдалося оновити статус інциденту: ${e?.message || e}. ` +
+          'Якщо повідомлення містить "JWT issued at future" — синхронізуй годинник Windows.',
+      )
+    }
+  }
+
+  const updateIncident = async (incidentId, nextValues) => {
+    try {
+      const updated = await patchIncident(incidentId, {
+        ...nextValues,
+        status: normalizeIncidentStatus(nextValues.status ?? 'В роботі'),
+        category: normalizeIncidentCategory(nextValues.category ?? 'equipment'),
+      })
+      setIncidents((prev) =>
+        prev.map((i) =>
+          i.id === incidentId
+            ? {
+                ...updated,
+                status: normalizeIncidentStatus(updated.status),
+                category: normalizeIncidentCategory(updated.category),
+              }
+            : i,
+        ),
+      )
+      appendAudit('UPDATE_INCIDENT', { incidentId, patch: nextValues })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  const deleteIncident = async (incidentId) => {
+    const removed = incidents.find((i) => i.id === incidentId)
+    try {
+      await removeIncident(incidentId)
+      setIncidents((prev) => prev.filter((i) => i.id !== incidentId))
+      if (removed) appendAudit('DELETE_INCIDENT', { incidentId, snapshot: removed })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  // ── equipment ──
+  const patchEquipment = async (equipmentId, patch) => {
+    const old = equipment.find((e) => e.id === equipmentId)
+    try {
+      const updated = await patchEquipmentRow(equipmentId, patch)
+      setEquipment((prev) => prev.map((e) => (e.id === equipmentId ? updated : e)))
+      if (old) appendAudit('UPDATE_EQUIPMENT', { equipmentId, name: old.name, patch })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  const addEquipment = async (payload) => {
+    try {
+      const created = await insertEquipment(payload)
+      setEquipment((prev) => [...prev, created])
+      appendAudit('ADD_EQUIPMENT', { equipmentId: created.id, name: created.name })
+      return { ok: true, equipment: created }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  const deleteEquipment = async (equipmentId) => {
+    const removed = equipment.find((e) => e.id === equipmentId)
+    try {
+      await removeEquipment(equipmentId)
+      setEquipment((prev) => prev.filter((e) => e.id !== equipmentId))
+      if (removed) appendAudit('DELETE_EQUIPMENT', { equipmentId, name: removed.name })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  // ── shifts ──
+  const activeShift = shifts.find((s) => s.status === 'Відкрита') || null
+
+  const openShift = async ({ openingData, notes, operator }) => {
+    if (activeShift) return { ok: false, error: 'Спочатку закрийте поточну відкриту зміну' }
+    try {
+      const created = await insertShift({ openingData, notes, operator })
+      setShifts((prev) => [created, ...prev])
+      appendAudit('OPEN_SHIFT', {
+        shiftId: created.id,
+        operator: operator || 'Невідомо',
+        notes,
+        openingData,
+      })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  const closeShift = async (notes) => {
+    if (!activeShift) return { ok: false, error: 'Немає відкритої зміни' }
+    try {
+      const updated = await patchShiftClose(activeShift.id, notes)
+      setShifts((prev) => prev.map((s) => (s.id === activeShift.id ? updated : s)))
+      appendAudit('CLOSE_SHIFT', { shiftId: activeShift.id, notes })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  // ── users (app_users) ──
+  const updateUser = async (userId, patch) => {
+    try {
+      await rpcAppUpdateUser(userId, {
+        displayName: patch.displayName,
+        role: patch.role,
+      })
+      await refreshAll()
+      appendAudit('UPDATE_USER', { userId, patch })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  const setUserActive = async (userId, active) => {
+    try {
+      await rpcAppSetActive(userId, active)
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, active } : u)))
+      appendAudit(active ? 'ACTIVATE_USER' : 'DEACTIVATE_USER', { userId })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  // створення нового користувача (login + password + role)
+  const addUser = async (payload) => {
+    try {
+      const newUserId = await rpcAppCreateUser({
+        login: (payload.login || '').trim(),
+        password: payload.password || '',
+        displayName: (payload.displayName || '').trim() || payload.login,
+        role: payload.role || 'operator',
+      })
+      await refreshAll()
+      appendAudit('ADD_USER', {
+        userId: newUserId,
+        login: payload.login,
+        role: payload.role,
+      })
+      return { ok: true, userId: newUserId }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  const setUserPassword = async (userId, newPassword) => {
+    try {
+      await rpcAppSetPassword(userId, newPassword)
+      appendAudit('SET_USER_PASSWORD', { userId })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  const deleteUser = async (userId) => {
+    const removed = users.find((u) => u.id === userId)
+    try {
+      await rpcAppDeleteUser(userId)
+      setUsers((prev) => prev.filter((u) => u.id !== userId))
+      if (removed) appendAudit('DELETE_USER', { userId, login: removed.login })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) }
+    }
+  }
+
+  // ── averages, etc. ──
   const averageDailyConsumptionKg = RAW_KEYS.reduce((acc, key) => {
     const spent = movements
-      .filter((movement) => movement.type === 'Списання')
-      .reduce((sum, movement) => sum + Math.abs(movement.deltaKg[key]), 0)
+      .filter((m) => m.type === 'Списання')
+      .reduce((sum, m) => sum + Math.abs(m.deltaKg[key]), 0)
     acc[key] = spent / 7
     return acc
   }, {})
 
-  const activeShift = shifts.find((shift) => shift.status === 'Відкрита') || null
-
-  const openShift = ({ openingData, notes, operator }) => {
-    if (activeShift) {
-      return { ok: false, error: 'Спочатку закрийте поточну відкриту зміну' }
-    }
-    const now = formatDateTime(new Date())
-    const nextId = shifts.length ? Math.max(...shifts.map((item) => item.id)) + 1 : 1
-    const newShift = {
-      id: nextId,
-      openedAt: now,
-      closedAt: '',
-      status: 'Відкрита',
-      openingData,
-      notes,
-      operator: operator || 'Невідомо',
-    }
-    setShifts((prev) => [newShift, ...prev])
-    appendAudit('OPEN_SHIFT', {
-      shiftId: nextId,
-      operator: operator || 'Невідомо',
-      notes,
-      openingData,
-    })
-    return { ok: true }
-  }
-
-  const closeShift = (notes) => {
-    if (!activeShift) {
-      return { ok: false, error: 'Немає відкритої зміни' }
-    }
-    const closedAt = formatDateTime(new Date())
-    const shiftId = activeShift.id
-    setShifts((prev) =>
-      prev.map((shift) =>
-        shift.id === activeShift.id
-          ? { ...shift, status: 'Закрита', closedAt, notes: notes || shift.notes }
-          : shift,
-      ),
-    )
-    appendAudit('CLOSE_SHIFT', { shiftId, notes })
-    return { ok: true }
-  }
-
-  const patchEquipment = (equipmentId, patch) => {
-    const old = equipment.find((item) => item.id === equipmentId)
-    if (!old) {
-      return
-    }
-    appendAudit('UPDATE_EQUIPMENT', { equipmentId, name: old.name, patch })
-    setEquipment((prev) =>
-      prev.map((item) => (item.id === equipmentId ? { ...item, ...patch } : item)),
-    )
-  }
-
   const contextValue = {
+    loading,
+    error,
+    refreshAll,
+    refreshAuditLog,
     users,
-    authenticateUser,
     addUser,
     updateUser,
     setUserActive,
+    setUserPassword,
+    deleteUser,
     recipes: recipesState,
     batches,
     incidents,
@@ -487,6 +509,8 @@ export function AppDataProvider({ children }) {
     deleteRecipe,
     addRawArrival,
     patchEquipment,
+    addEquipment,
+    deleteEquipment,
     openShift,
     closeShift,
   }

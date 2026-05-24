@@ -13,12 +13,20 @@ import { useTheme } from '../context/ThemeContext'
 import { initialRawStorageKg } from '../data/mockData'
 
 const parseDateTime = (value) => {
-  if (!value || typeof value !== 'string') {
-    return null
-  }
+  if (!value || typeof value !== 'string') return null
   const normalized = value.includes('T') ? value : value.replace(' ', 'T')
   const parsed = new Date(normalized)
   return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+const STORAGE_META = {
+  wheat: { label: 'Пшениця', icon: '🌾', color: 'bg-amber-500', accent: 'border-l-amber-500' },
+  corn: { label: 'Кукурудза', icon: '🌽', color: 'bg-orange-500', accent: 'border-l-orange-500' },
+  premix: { label: 'Премікси', icon: '🧪', color: 'bg-emerald-500', accent: 'border-l-emerald-500' },
+}
+
+const toDateKey = (d) => {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function DashboardPage() {
@@ -27,6 +35,14 @@ function DashboardPage() {
   const axisStroke = isDark ? '#94a3b8' : '#475569'
   const { storageKg, movements, batches, averageDailyConsumptionKg, addRawArrival } = useAppData()
   const [period, setPeriod] = useState('all')
+  const todayKey = toDateKey(new Date())
+  const [customFrom, setCustomFrom] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 14)
+    return toDateKey(d)
+  })
+  const [customTo, setCustomTo] = useState(todayKey)
+
   const [arrivalForm, setArrivalForm] = useState({
     source: '',
     wheatKg: '',
@@ -35,28 +51,38 @@ function DashboardPage() {
   })
   const [arrivalError, setArrivalError] = useState('')
   const [sortConfig, setSortConfig] = useState({ key: 'time', direction: 'desc' })
-  const cutoffDate = useMemo(() => {
-    const now = new Date()
+
+  const dateRange = useMemo(() => {
+    if (period === 'custom') {
+      return {
+        from: new Date(`${customFrom}T00:00:00`),
+        to: new Date(`${customTo}T23:59:59.999`),
+      }
+    }
     if (period === 'week') {
-      now.setDate(now.getDate() - 7)
-      return now
+      const from = new Date()
+      from.setDate(from.getDate() - 7)
+      return { from, to: null }
     }
     if (period === 'month') {
-      now.setMonth(now.getMonth() - 1)
-      return now
+      const from = new Date()
+      from.setMonth(from.getMonth() - 1)
+      return { from, to: null }
     }
-    return null
-  }, [period])
+    return { from: null, to: null }
+  }, [period, customFrom, customTo])
+
+  const isInRange = (d) => {
+    if (dateRange.from && d < dateRange.from) return false
+    if (dateRange.to && d > dateRange.to) return false
+    return true
+  }
 
   const chartData = useMemo(() => {
     const byDay = batches.reduce((acc, batch) => {
       const batchDate = parseDateTime(batch.createdAt)
-      if (!batchDate) {
-        return acc
-      }
-      if (cutoffDate && batchDate < cutoffDate) {
-        return acc
-      }
+      if (!batchDate) return acc
+      if (!isInRange(batchDate)) return acc
       const day = batch.createdAt.slice(0, 10)
       acc[day] = (acc[day] || 0) + (Number(batch.feedProducedKg) || 0)
       return acc
@@ -64,18 +90,18 @@ function DashboardPage() {
     return Object.entries(byDay)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([day, producedKg]) => ({ day, tons: Number((producedKg / 1000).toFixed(2)) }))
-  }, [batches, cutoffDate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batches, dateRange])
 
   const filteredMovements = useMemo(
     () =>
       movements.filter((movement) => {
         const movementDate = parseDateTime(movement.time)
-        if (!movementDate) {
-          return false
-        }
-        return !cutoffDate || movementDate >= cutoffDate
+        if (!movementDate) return false
+        return isInRange(movementDate)
       }),
-    [cutoffDate, movements],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dateRange, movements],
   )
 
   const sortedMovements = useMemo(() => {
@@ -101,9 +127,9 @@ function DashboardPage() {
   const sortArrow = (key) =>
     sortConfig.key === key ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'
 
-  const handleArrivalSubmit = (event) => {
+  const handleArrivalSubmit = async (event) => {
     event.preventDefault()
-    const result = addRawArrival(arrivalForm)
+    const result = await addRawArrival(arrivalForm)
     if (!result.ok) {
       setArrivalError(result.error)
       return
@@ -112,22 +138,105 @@ function DashboardPage() {
     setArrivalForm({ source: '', wheatKg: '', cornKg: '', premixKg: '' })
   }
 
-  const storageCards = [
-    { key: 'wheat', label: 'Пшениця' },
-    { key: 'corn', label: 'Кукурудза' },
-    { key: 'premix', label: 'Премікси' },
-  ]
+  const lowStockWarnings = useMemo(
+    () =>
+      Object.keys(storageKg)
+        .map((key) => {
+          const daily = averageDailyConsumptionKg[key] || 0
+          if (!daily) return null
+          const daysLeft = Math.round(storageKg[key] / daily)
+          if (daysLeft >= 3) return null
+          return { key, daysLeft, label: STORAGE_META[key]?.label || key }
+        })
+        .filter(Boolean),
+    [averageDailyConsumptionKg, storageKg],
+  )
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-slate-800">Склад сировини та рух</h3>
-        <form onSubmit={handleArrivalSubmit} className="mb-4 grid gap-3 md:grid-cols-5">
+    <section className="space-y-5">
+      {/* HERO */}
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-enterprise-700 to-enterprise-800 p-5 shadow-sm">
+        <p className="text-xs font-medium uppercase tracking-widest text-blue-200">
+          Огляд виробництва
+        </p>
+        <h2 className="mt-1 text-2xl font-bold text-white">Склад сировини та операції</h2>
+        <p className="mt-1 text-sm text-blue-100">
+          Прогноз залишків розраховується за середньодобовим списанням сировини за останній тиждень.
+        </p>
+      </div>
+
+      {/* Low-stock alerts */}
+      {lowStockWarnings.length > 0 && (
+        <div className="rounded-xl border-l-4 border-l-rose-500 border border-rose-200 bg-rose-50 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">⚠</span>
+            <div>
+              <p className="font-semibold text-rose-900">Критично низькі запаси</p>
+              <p className="mt-1 text-sm text-rose-800">
+                {lowStockWarnings
+                  .map((w) => `${w.label} — ${w.daysLeft} дн.`)
+                  .join(' · ')}
+              </p>
+              <p className="mt-1 text-xs text-rose-700">Зафіксуйте надходження або скоригуйте план виробництва.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Storage cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {Object.entries(STORAGE_META).map(([key, meta]) => {
+          const current = storageKg[key]
+          const initial = initialRawStorageKg[key]
+          const percent = Math.round((current / initial) * 100)
+          const daily = averageDailyConsumptionKg[key] || 0
+          const daysLeft = daily > 0 ? Math.max(1, Math.round(current / daily)) : null
+          const isCritical = daysLeft && daysLeft < 3
+          return (
+            <div
+              key={key}
+              className={`relative overflow-hidden rounded-xl border border-slate-200 border-l-4 ${meta.accent} bg-white p-5 shadow-sm transition hover:shadow-md`}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    {meta.label}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">
+                    {current.toLocaleString('uk-UA')}
+                    <span className="ml-1 text-sm font-normal text-slate-500">кг</span>
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white/70 p-2 text-2xl shadow-sm dark:bg-slate-700">
+                  {meta.icon}
+                </div>
+              </div>
+              <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={`h-2.5 rounded-full ${meta.color} transition-all`}
+                  style={{ width: `${Math.min(percent, 100)}%` }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-slate-500">{percent}% від стартового</span>
+                <span className={isCritical ? 'font-semibold text-rose-600' : 'text-slate-500'}>
+                  {daysLeft ? `≈ ${daysLeft} дн.` : 'немає прогнозу'}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Arrival form */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="mb-3 text-base font-semibold text-slate-800">Зафіксувати надходження</h3>
+        <form onSubmit={handleArrivalSubmit} className="grid gap-3 md:grid-cols-5">
           <input
             placeholder="Постачальник / джерело"
             value={arrivalForm.source}
             onChange={(event) => setArrivalForm((prev) => ({ ...prev, source: event.target.value }))}
-            className="rounded-md border border-slate-300 px-3 py-2"
+            className="rounded-lg border border-slate-300 px-3 py-2 md:col-span-2"
           />
           <input
             type="number"
@@ -135,7 +244,7 @@ function DashboardPage() {
             placeholder="Пшениця, кг"
             value={arrivalForm.wheatKg}
             onChange={(event) => setArrivalForm((prev) => ({ ...prev, wheatKg: event.target.value }))}
-            className="rounded-md border border-slate-300 px-3 py-2"
+            className="rounded-lg border border-slate-300 px-3 py-2"
           />
           <input
             type="number"
@@ -143,7 +252,7 @@ function DashboardPage() {
             placeholder="Кукурудза, кг"
             value={arrivalForm.cornKg}
             onChange={(event) => setArrivalForm((prev) => ({ ...prev, cornKg: event.target.value }))}
-            className="rounded-md border border-slate-300 px-3 py-2"
+            className="rounded-lg border border-slate-300 px-3 py-2"
           />
           <input
             type="number"
@@ -151,57 +260,75 @@ function DashboardPage() {
             placeholder="Премікси, кг"
             value={arrivalForm.premixKg}
             onChange={(event) => setArrivalForm((prev) => ({ ...prev, premixKg: event.target.value }))}
-            className="rounded-md border border-slate-300 px-3 py-2"
+            className="rounded-lg border border-slate-300 px-3 py-2"
           />
           <button
             type="submit"
-            className="rounded-md bg-enterprise-700 px-4 py-2 text-sm font-semibold text-white hover:bg-enterprise-800"
+            className="rounded-lg bg-enterprise-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-enterprise-800 md:col-span-5"
           >
-            Додати надходження
+            + Додати надходження
           </button>
-          {arrivalError && <p className="md:col-span-5 text-sm text-red-600">{arrivalError}</p>}
+          {arrivalError && (
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 md:col-span-5">
+              {arrivalError}
+            </p>
+          )}
         </form>
-        <div className="grid gap-4 md:grid-cols-3">
-          {storageCards.map((item) => {
-            const current = storageKg[item.key]
-            const initial = initialRawStorageKg[item.key]
-            const percent = Math.round((current / initial) * 100)
-            const daily = averageDailyConsumptionKg[item.key] || 0
-            const daysLeft = daily > 0 ? Math.max(1, Math.round(current / daily)) : null
-            return (
-              <div key={item.key} className="rounded-lg border border-slate-200 p-3">
-                <p className="text-sm font-medium text-slate-700">{item.label}</p>
-                <p className="mt-1 text-sm text-slate-600">{current.toLocaleString('uk-UA')} кг</p>
-                <div className="mt-2 h-2 w-full rounded-full bg-slate-200">
-                  <div
-                    className="h-2 rounded-full bg-enterprise-700"
-                    style={{ width: `${Math.min(percent, 100)}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-slate-500">{percent}% від стартового запасу</p>
-                <p className="mt-1 text-xs text-orange-600">
-                  {daysLeft ? `Залишилось приблизно на ${daysLeft} дн.` : 'Недостатньо даних для прогнозу'}
-                </p>
-              </div>
-            )
-          })}
-        </div>
       </div>
 
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-slate-800">Виробництво кормів (т)</h3>
-          <select
-            value={period}
-            onChange={(event) => setPeriod(event.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
-          >
-            <option value="week">За тиждень</option>
-            <option value="month">За місяць</option>
-            <option value="all">За весь час</option>
-          </select>
+      {/* Production chart */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <h3 className="text-base font-semibold text-slate-800">Виробництво кормів (т)</h3>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+              {[
+                { v: 'week', l: 'Тиждень' },
+                { v: 'month', l: 'Місяць' },
+                { v: 'all', l: 'Весь час' },
+                { v: 'custom', l: 'Період' },
+              ].map((opt) => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setPeriod(opt.v)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                    period === opt.v
+                      ? 'bg-enterprise-700 text-white shadow-sm'
+                      : 'text-slate-700 hover:bg-white'
+                  }`}
+                >
+                  {opt.l}
+                </button>
+              ))}
+            </div>
+            {period === 'custom' && (
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="text-xs text-slate-600 dark:text-slate-300">
+                  Від
+                  <input
+                    type="date"
+                    value={customFrom}
+                    max={customTo}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="mt-1 block rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                  />
+                </label>
+                <label className="text-xs text-slate-600 dark:text-slate-300">
+                  До
+                  <input
+                    type="date"
+                    value={customTo}
+                    min={customFrom}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="mt-1 block rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="h-80">
+        <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
               <XAxis dataKey="day" stroke={axisStroke} tick={{ fill: axisStroke }} />
@@ -214,14 +341,15 @@ function DashboardPage() {
                 }
               />
               <Legend />
-              <Bar dataKey="tons" name="Тонн/день" fill="#2f4d71" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="tons" name="Тонн/день" fill="#2f4d71" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-slate-800">Журнал рухів сировини</h3>
+      {/* Movements journal */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="mb-3 text-base font-semibold text-slate-800">Журнал рухів сировини</h3>
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="min-w-full text-left text-sm text-slate-700">
             <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
@@ -243,14 +371,25 @@ function DashboardPage() {
             </thead>
             <tbody>
               {sortedMovements.map((movement) => (
-                <tr key={movement.id} className="border-t border-slate-200">
-                  <td className="px-4 py-3">{movement.time}</td>
-                  <td className="px-4 py-3">{movement.type}</td>
-                  <td className="px-4 py-3">{movement.source}</td>
+                <tr key={movement.id} className="border-t border-slate-200 hover:bg-slate-50">
+                  <td className="px-4 py-3 text-xs text-slate-600">{movement.time}</td>
                   <td className="px-4 py-3">
-                    Пш: {movement.deltaKg.wheat}, Кк: {movement.deltaKg.corn}, Пр: {movement.deltaKg.premix}
+                    <span
+                      className={
+                        movement.type === 'Надходження'
+                          ? 'rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800'
+                          : 'rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800'
+                      }
+                    >
+                      {movement.type}
+                    </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3">{movement.source}</td>
+                  <td className="px-4 py-3 text-xs">
+                    Пш: {movement.deltaKg.wheat}, Кк: {movement.deltaKg.corn}, Пр:{' '}
+                    {movement.deltaKg.premix}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-600">
                     Пш: {movement.balanceKg.wheat}, Кк: {movement.balanceKg.corn}, Пр:{' '}
                     {movement.balanceKg.premix}
                   </td>

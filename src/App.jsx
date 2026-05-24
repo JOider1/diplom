@@ -44,17 +44,38 @@ function App() {
                 }
               />
               <Route path="production-journal" element={<ProductionJournalPage />} />
-              <Route path="incidents" element={<IncidentsPage />} />
-              <Route path="recipes" element={<RecipesPage />} />
+              <Route
+                path="incidents"
+                element={
+                  <PrivateRoute allowedRoles={['admin', 'shift-manager', 'operator']}>
+                    <IncidentsPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="recipes"
+                element={
+                  <PrivateRoute allowedRoles={['admin', 'shift-manager', 'accountant']}>
+                    <RecipesPage />
+                  </PrivateRoute>
+                }
+              />
               <Route
                 path="reports"
                 element={
-                  <PrivateRoute allowedRoles={['admin', 'shift-manager']}>
+                  <PrivateRoute allowedRoles={['admin', 'shift-manager', 'accountant']}>
                     <ReportsPage />
                   </PrivateRoute>
                 }
               />
-              <Route path="equipment" element={<EquipmentPage />} />
+              <Route
+                path="equipment"
+                element={
+                  <PrivateRoute allowedRoles={['admin', 'shift-manager', 'operator']}>
+                    <EquipmentPage />
+                  </PrivateRoute>
+                }
+              />
               <Route
                 path="users"
                 element={

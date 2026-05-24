@@ -21,14 +21,52 @@ import { useAppData } from '../context/AppDataContext'
 import { getEquipmentIncidentSummary } from '../utils/equipmentIncidentStatus'
 import {
   getPeriodBounds,
-  getPeriodLabel,
   isWithinPeriod,
   REPORT_PERIOD_OPTIONS,
   toDateKey,
 } from '../utils/reportPeriod'
-import { exportWorkbook } from '../utils/xlsxExport'
+import { exportReportWorkbook } from '../utils/xlsxExport'
 
 const EQUIP_STATUS_ORDER = ['Робоча', 'Тех. огляд', 'Ремонт']
+
+const KPI_ACCENTS = {
+  blue: 'from-blue-500/10 to-blue-500/0 border-l-blue-500',
+  emerald: 'from-emerald-500/10 to-emerald-500/0 border-l-emerald-500',
+  orange: 'from-orange-500/10 to-orange-500/0 border-l-orange-500',
+  rose: 'from-rose-500/10 to-rose-500/0 border-l-rose-500',
+  amber: 'from-amber-500/10 to-amber-500/0 border-l-amber-500',
+}
+
+function KpiCard({ accent = 'blue', label, value, hint, icon }) {
+  return (
+    <div
+      className={`print-section relative overflow-hidden rounded-xl border border-slate-200 border-l-4 bg-gradient-to-br ${KPI_ACCENTS[accent]} bg-white p-4 shadow-sm transition hover:shadow-md`}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</p>
+          <p className="mt-2 text-2xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
+          {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+        </div>
+        {icon && (
+          <div className="rounded-lg bg-white/70 p-2 text-lg shadow-sm dark:bg-slate-700">{icon}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SectionCard({ title, action, children }) {
+  return (
+    <div className="print-section rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-base font-semibold text-slate-800">{title}</h3>
+        {action}
+      </div>
+      {children}
+    </div>
+  )
+}
 
 function ReportsPage() {
   const { theme } = useTheme()
@@ -38,27 +76,44 @@ function ReportsPage() {
 
   const { batches, incidents, movements, storageKg, equipment } = useAppData()
   const [period, setPeriod] = useState('week')
-  const [referenceDate, setReferenceDate] = useState(() => toDateKey(new Date()))
+  const todayKey = toDateKey(new Date())
+  const [referenceDate, setReferenceDate] = useState(todayKey)
+  const [customFrom, setCustomFrom] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 14)
+    return toDateKey(d)
+  })
+  const [customTo, setCustomTo] = useState(todayKey)
 
-  const periodMeta = useMemo(() => getPeriodBounds(period, referenceDate), [period, referenceDate])
+  const customRange = useMemo(() => ({ from: customFrom, to: customTo }), [customFrom, customTo])
+
+  const periodMeta = useMemo(
+    () => getPeriodBounds(period, referenceDate, customRange),
+    [period, referenceDate, customRange],
+  )
 
   const filteredBatches = useMemo(
-    () => batches.filter((batch) => isWithinPeriod(batch.createdAt, period, referenceDate)),
-    [batches, period, referenceDate],
+    () => batches.filter((batch) => isWithinPeriod(batch.createdAt, period, referenceDate, customRange)),
+    [batches, period, referenceDate, customRange],
   )
 
   const filteredIncidents = useMemo(
-    () => incidents.filter((item) => isWithinPeriod(item.time, period, referenceDate)),
-    [incidents, period, referenceDate],
+    () => incidents.filter((item) => isWithinPeriod(item.time, period, referenceDate, customRange)),
+    [incidents, period, referenceDate, customRange],
   )
 
   const filteredMovements = useMemo(
-    () => movements.filter((item) => isWithinPeriod(item.time, period, referenceDate)),
-    [movements, period, referenceDate],
+    () => movements.filter((item) => isWithinPeriod(item.time, period, referenceDate, customRange)),
+    [movements, period, referenceDate, customRange],
   )
 
   const periodTons = useMemo(
-    () => (filteredBatches.reduce((sum, batch) => sum + batch.feedProducedKg, 0) / 1000).toFixed(1),
+    () => Number((filteredBatches.reduce((sum, batch) => sum + batch.feedProducedKg, 0) / 1000).toFixed(2)),
+    [filteredBatches],
+  )
+
+  const periodRawSpentKg = useMemo(
+    () => filteredBatches.reduce((sum, b) => sum + (Number(b.rawSpentKg) || 0), 0),
     [filteredBatches],
   )
 
@@ -96,9 +151,7 @@ function ReportsPage() {
 
   const recentIncidents = useMemo(() => {
     const parseT = (time) => {
-      if (!time || typeof time !== 'string') {
-        return 0
-      }
+      if (!time || typeof time !== 'string') return 0
       const normalized = time.includes('T') ? time : time.replace(' ', 'T')
       const value = new Date(normalized).getTime()
       return Number.isNaN(value) ? 0 : value
@@ -149,6 +202,25 @@ function ReportsPage() {
     [filteredIncidents],
   )
 
+  const totalCostUah = useMemo(
+    () => filteredBatches.reduce((sum, b) => sum + (Number(b.batchCostUah) || 0), 0),
+    [filteredBatches],
+  )
+
+  const costByRecipe = useMemo(() => {
+    const map = filteredBatches.reduce((acc, b) => {
+      if (!acc[b.recipe]) acc[b.recipe] = { recipe: b.recipe, totalCostUah: 0, producedTons: 0 }
+      acc[b.recipe].totalCostUah += Number(b.batchCostUah) || 0
+      acc[b.recipe].producedTons += (Number(b.feedProducedKg) || 0) / 1000
+      return acc
+    }, {})
+    return Object.values(map).map((r) => ({
+      ...r,
+      producedTons: Number(r.producedTons.toFixed(2)),
+      costPerTon: r.producedTons > 0 ? Math.round(r.totalCostUah / r.producedTons) : 0,
+    }))
+  }, [filteredBatches])
+
   const movementsChartData = useMemo(
     () =>
       filteredMovements.map((movement) => ({
@@ -160,147 +232,378 @@ function ReportsPage() {
     [filteredMovements],
   )
 
+  const periodFilenameStamp =
+    period === 'custom' ? `${customFrom}_${customTo}` : `${period}-${referenceDate}`
+
+  const buildReportConfig = () => {
+    const avgCostPerTon = periodTons > 0 ? Math.round(totalCostUah / periodTons) : 0
+    return {
+      docTitle: 'Звіт з аналітики виробництва',
+      docSubtitle: `Комбікормовий завод · ${periodMeta.label}`,
+      generatedAt: new Date().toLocaleString('uk-UA'),
+      avgCostPerTon,
+      sheets: [
+        {
+          name: 'Огляд',
+          title: 'Загальний огляд за період',
+          sections: [
+            {
+              title: 'Ключові показники',
+              kpis: [
+                { label: 'Період', value: periodMeta.label },
+                { label: 'Вироблено', value: periodTons, unit: 'т' },
+                { label: 'Витрачено сировини', value: periodRawSpentKg, unit: 'кг' },
+                { label: 'Кількість партій', value: filteredBatches.length, unit: 'шт' },
+                { label: 'Загальна собівартість', value: totalCostUah, unit: 'грн' },
+                { label: 'Середня собівартість', value: avgCostPerTon, unit: 'грн/т' },
+                { label: 'Активні інциденти', value: activeIncidentsCount, unit: 'шт' },
+                { label: 'Усього інцидентів', value: filteredIncidents.length, unit: 'шт' },
+                { label: 'Не «Робоча» (довідник)', value: nonWorkingEquipmentCount, unit: 'шт' },
+              ],
+            },
+            {
+              title: 'Залишки сировини на складі',
+              headers: ['Сировина', 'Залишок, кг', 'Частка'],
+              rows: storagePieData.map((s) => {
+                const total = storagePieData.reduce((sum, x) => sum + x.value, 0)
+                const pct = total > 0 ? ((s.value / total) * 100).toFixed(1) + '%' : '—'
+                return [s.name, s.value, pct]
+              }),
+              totals: [
+                'Разом',
+                storagePieData.reduce((sum, s) => sum + s.value, 0),
+                '100%',
+              ],
+            },
+          ],
+        },
+        {
+          name: 'Виробництво',
+          title: 'Виробництво продукції',
+          sections: [
+            {
+              title: 'Виробництво за днями',
+              headers: ['Дата', 'Вироблено, т'],
+              rows: productionByDate.map((r) => [r.date, r.producedTons]),
+              totals: ['Разом', productionByDate.reduce((sum, r) => sum + r.producedTons, 0)],
+            },
+            {
+              title: 'Виробництво за рецептами',
+              headers: ['Рецепт', 'Вироблено, т', 'Частка, %'],
+              rows: productionByRecipe.map((r) => {
+                const total = productionByRecipe.reduce((s, x) => s + x.producedTons, 0)
+                const pct = total > 0 ? Number(((r.producedTons / total) * 100).toFixed(1)) : 0
+                return [r.recipe, r.producedTons, pct]
+              }),
+              totals: [
+                'Разом',
+                productionByRecipe.reduce((s, r) => s + r.producedTons, 0),
+                100,
+              ],
+            },
+            {
+              title: 'Деталізація партій',
+              headers: ['Час', 'Лінія', 'Рецепт', 'Витрачено, кг', 'Вироблено, кг', 'Собівартість, грн'],
+              rows: filteredBatches.map((b) => [
+                b.createdAt,
+                b.line || 'Лінія 1',
+                b.recipe,
+                Number(b.rawSpentKg) || 0,
+                Number(b.feedProducedKg) || 0,
+                Number(b.batchCostUah) || 0,
+              ]),
+              totals: [
+                'Разом',
+                '',
+                '',
+                periodRawSpentKg,
+                periodTons * 1000,
+                totalCostUah,
+              ],
+            },
+          ],
+        },
+        {
+          name: 'Собівартість',
+          title: 'Аналіз собівартості',
+          sections: [
+            {
+              title: 'Зведений підсумок',
+              kpis: [
+                { label: 'Загальна собівартість', value: totalCostUah, unit: 'грн' },
+                { label: 'Середня по партії', value: filteredBatches.length > 0 ? Math.round(totalCostUah / filteredBatches.length) : 0, unit: 'грн' },
+                { label: 'Середня на тонну', value: avgCostPerTon, unit: 'грн/т' },
+              ],
+            },
+            {
+              title: 'Собівартість за рецептами',
+              headers: ['Рецепт', 'Вироблено, т', 'Загальна вартість, грн', 'Собівартість, грн/т'],
+              rows: costByRecipe.map((r) => [
+                r.recipe,
+                r.producedTons,
+                r.totalCostUah,
+                r.costPerTon,
+              ]),
+              totals: [
+                'Разом',
+                costByRecipe.reduce((s, r) => s + r.producedTons, 0),
+                totalCostUah,
+                avgCostPerTon,
+              ],
+            },
+          ],
+        },
+        {
+          name: 'Інциденти',
+          title: 'Журнал інцидентів',
+          sections: [
+            {
+              title: 'Розподіл за статусами',
+              headers: ['Статус', 'Кількість'],
+              rows: incidentsByStatus.map((r) => [r.status, r.count]),
+              totals: ['Разом', filteredIncidents.length],
+            },
+            {
+              title: 'Деталізований список (до 20 останніх)',
+              headers: ['Час', 'Категорія', 'Обладнання / місце', 'Опис', 'Пріоритет', 'Статус'],
+              rows: recentIncidents.map((i) => [
+                i.time,
+                INCIDENT_CATEGORY_LABELS[normalizeIncidentCategory(i.category)] || '—',
+                i.equipment || '—',
+                i.description || '',
+                i.severity || 'Середня',
+                i.status,
+              ]),
+            },
+          ],
+        },
+        {
+          name: 'Обладнання',
+          title: 'Стан обладнання',
+          sections: [
+            {
+              title: 'Розподіл за статусами (довідник)',
+              headers: ['Статус', 'Одиниць'],
+              rows: equipmentByDirectoryStatus.map((r) => [r.status, r.count]),
+              totals: ['Разом', equipment.length],
+            },
+            {
+              title: 'Деталі по обладнанню',
+              headers: ['Назва', 'Тип', 'Статус (довідник)', 'З журналу інцидентів', 'Наступне ТО'],
+              rows: equipmentWithJournal.map((row) => [
+                row.name,
+                row.type || '—',
+                row.status,
+                row.journal.label,
+                row.nextMaintenance || '—',
+              ]),
+            },
+          ],
+        },
+        {
+          name: 'Рух сировини',
+          title: 'Рух сировини за період',
+          sections: [
+            {
+              title: 'Список операцій',
+              headers: ['Час', 'Тип', 'Джерело', 'Пшениця, кг', 'Кукурудза, кг', 'Премікси, кг'],
+              rows: filteredMovements.map((m) => [
+                m.time,
+                m.type,
+                m.source,
+                m.deltaKg.wheat,
+                m.deltaKg.corn,
+                m.deltaKg.premix,
+              ]),
+              totals: [
+                'Разом',
+                '',
+                '',
+                filteredMovements.reduce((s, m) => s + Math.abs(m.deltaKg.wheat), 0),
+                filteredMovements.reduce((s, m) => s + Math.abs(m.deltaKg.corn), 0),
+                filteredMovements.reduce((s, m) => s + Math.abs(m.deltaKg.premix), 0),
+              ],
+            },
+          ],
+        },
+      ],
+    }
+  }
+
   const handleExportXlsx = () => {
-    const stamp = referenceDate
-    exportWorkbook(`analityka-${period}-${stamp}.xlsx`, [
-      {
-        name: 'Параметри',
-        rows: [
-          {
-            Період: getPeriodLabel(period),
-            Діапазон: periodMeta.label,
-            'Вироблено_т': periodTons,
-          },
-        ],
-      },
-      {
-        name: 'KPI',
-        rows: [
-          {
-            Вироблено_т: periodTons,
-            Активні_інциденти: activeIncidentsCount,
-            Не_робоче_обладнання: nonWorkingEquipmentCount,
-            Пшениця_кг: storageKg.wheat,
-            Кукурудза_кг: storageKg.corn,
-            Премікси_кг: storageKg.premix,
-          },
-        ],
-      },
-      { name: 'Інциденти_статуси', rows: incidentsByStatus },
-      { name: 'Обладнання_довідник', rows: equipment.map((row) => ({ ...row })) },
-      {
-        name: 'Обладнання_журнал',
-        rows: equipmentWithJournal.map((row) => ({
-          Назва: row.name,
-          Статус_довідник: row.status,
-          Стан_з_інцидентів: row.journal.label,
-        })),
-      },
-      { name: 'Вироб_дата', rows: productionByDate },
-      { name: 'Вироб_рецепт', rows: productionByRecipe },
-      {
-        name: 'Інциденти',
-        rows: recentIncidents.map((row) => ({
-          Час: row.time,
-          Обладнання: row.equipment,
-          Статус: row.status,
-          Опис: row.description,
-        })),
-      },
-      {
-        name: 'Рухи',
-        rows: filteredMovements.map((row) => ({
-          Час: row.time,
-          Тип: row.type,
-          Джерело: row.source,
-          Пш: row.deltaKg.wheat,
-          Кк: row.deltaKg.corn,
-          Пр: row.deltaKg.premix,
-        })),
-      },
-    ])
+    const cfg = buildReportConfig()
+    exportReportWorkbook({
+      filename: `zvit-vyrobnytstva-${periodFilenameStamp}.xlsx`,
+      docTitle: cfg.docTitle,
+      docSubtitle: cfg.docSubtitle,
+      generatedAt: cfg.generatedAt,
+      sheets: cfg.sheets,
+    })
+  }
+
+  const handleExportPdf = async () => {
+    const { exportReportPdf } = await import('../utils/pdfExport')
+    const cfg = buildReportConfig()
+    exportReportPdf({
+      filename: `zvit-vyrobnytstva-${periodFilenameStamp}.pdf`,
+      docTitle: cfg.docTitle,
+      docSubtitle: cfg.docSubtitle,
+      generatedAt: cfg.generatedAt,
+      sheets: cfg.sheets,
+    })
   }
 
   return (
-    <section className="space-y-4">
-      <div className="no-print flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-800">Звіти та аналітика</h3>
-          <p className="mt-1 text-sm text-slate-600">{periodMeta.label}</p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-sm text-slate-700">
-            Період
-            <select
-              value={period}
-              onChange={(event) => setPeriod(event.target.value)}
-              className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+    <section className="space-y-5">
+      {/* ── HEADER ── */}
+      <div className="no-print rounded-xl border border-slate-200 bg-gradient-to-br from-enterprise-700 to-enterprise-800 p-5 shadow-sm">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-blue-200">
+              Комбікормовий завод
+            </p>
+            <h2 className="mt-1 text-2xl font-bold text-white">Звіти та аналітика</h2>
+            <p className="mt-1 text-sm text-blue-100">{periodMeta.label}</p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              className="rounded-lg bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-rose-600 hover:shadow-lg"
             >
-              {REPORT_PERIOD_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm text-slate-700">
-            {period === 'day' ? 'Дата' : 'Опорна дата'}
-            <input
-              type="date"
-              value={referenceDate}
-              onChange={(event) => setReferenceDate(event.target.value)}
-              className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={handleExportXlsx}
-            className="rounded-md border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-200"
-          >
-            Excel
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
-          >
-            Друк
-          </button>
+              📄 Експорт у PDF
+            </button>
+            <button
+              type="button"
+              onClick={handleExportXlsx}
+              className="rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-600 hover:shadow-lg"
+            >
+              📊 Експорт у Excel
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* ── PERIOD PICKER ── */}
+      <div className="no-print rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+            {REPORT_PERIOD_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setPeriod(option.value)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  period === option.value
+                    ? 'bg-enterprise-700 text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-white'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          {period === 'custom' ? (
+            <>
+              <label className="text-sm text-slate-700">
+                Від
+                <input
+                  type="date"
+                  value={customFrom}
+                  max={customTo}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="text-sm text-slate-700">
+                До
+                <input
+                  type="date"
+                  value={customTo}
+                  min={customFrom}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+              </label>
+            </>
+          ) : (
+            <label className="text-sm text-slate-700">
+              {period === 'day' ? 'Дата' : 'Опорна дата'}
+              <input
+                type="date"
+                value={referenceDate}
+                onChange={(e) => setReferenceDate(e.target.value)}
+                className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+              />
+            </label>
+          )}
+
+          <div className="ml-auto rounded-md bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800">
+            {filteredBatches.length} партій · {filteredIncidents.length} інцидентів
+          </div>
+        </div>
+      </div>
+
+      {/* ── PRINT HEADER ── */}
       <div className="report-print-header hidden print:block">
-        <h1 className="text-xl font-bold text-slate-900">Звіт з аналітики виробництва</h1>
-        <p className="mt-1 text-sm text-slate-700">
-          Період: {getPeriodLabel(period)} · {periodMeta.label}
-        </p>
-        <p className="text-xs text-slate-500">Сформовано: {new Date().toLocaleString('uk-UA')}</p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Вироблено за період</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-800">{periodTons} т</p>
-        </div>
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Активні інциденти</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-800">{activeIncidentsCount}</p>
-          <p className="mt-1 text-xs text-slate-500">У межах обраного періоду</p>
-        </div>
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Не «Робоча» (довідник)</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-800">{nonWorkingEquipmentCount}</p>
-        </div>
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Партій за період</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-800">{filteredBatches.length}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <p className="print-company-name">Комбікормовий завод</p>
+            <h1>Звіт з аналітики виробництва</h1>
+            <p className="print-doc-subtitle">{periodMeta.label}</p>
+          </div>
+          <div className="print-logo-block">
+            <div className="print-logo">DSJ</div>
+            <p className="print-generated">Digital Shift Journal</p>
+            <p className="print-generated">Сформовано: {new Date().toLocaleString('uk-UA')}</p>
+          </div>
         </div>
       </div>
 
+      {/* ── KPI GRID ── */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <KpiCard
+          accent="blue"
+          label="Вироблено"
+          value={`${periodTons} т`}
+          hint="за обраний період"
+          icon="🏭"
+        />
+        <KpiCard
+          accent="emerald"
+          label="Собівартість"
+          value={`${totalCostUah.toLocaleString('uk-UA')} ₴`}
+          hint={periodTons > 0 ? `${Math.round(totalCostUah / periodTons).toLocaleString('uk-UA')} ₴/т` : '—'}
+          icon="💰"
+        />
+        <KpiCard
+          accent="orange"
+          label="Активні інциденти"
+          value={activeIncidentsCount}
+          hint="в роботі + на перевірці"
+          icon="⚠"
+        />
+        <KpiCard
+          accent="rose"
+          label="Не «Робоча»"
+          value={nonWorkingEquipmentCount}
+          hint="одиниць обладнання"
+          icon="🔧"
+        />
+        <KpiCard
+          accent="amber"
+          label="Партій"
+          value={filteredBatches.length}
+          hint="за обраний період"
+          icon="📦"
+        />
+      </div>
+
+      {/* ── CHARTS ── */}
       <div className="grid gap-4 lg:grid-cols-2 screen-only-charts">
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-800">Інциденти за статусом</h3>
-          <div className="mt-4 h-56">
+        <SectionCard title="Інциденти за статусом">
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={incidentsByStatus}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
@@ -308,20 +611,17 @@ function ReportsPage() {
                 <YAxis stroke={axisStroke} tick={{ fill: axisStroke }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={
-                    isDark
-                      ? { backgroundColor: '#1e293b', borderColor: '#475569', color: '#f1f5f9' }
-                      : undefined
+                    isDark ? { backgroundColor: '#1e293b', borderColor: '#475569', color: '#f1f5f9' } : undefined
                   }
                 />
-                <Bar dataKey="count" name="Кількість" fill="#ea580c" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" name="Кількість" fill="#ea580c" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </SectionCard>
 
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-800">Обладнання за довідником</h3>
-          <div className="mt-4 h-56">
+        <SectionCard title="Обладнання за статусом">
+          <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={equipmentByDirectoryStatus}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
@@ -329,18 +629,17 @@ function ReportsPage() {
                 <YAxis stroke={axisStroke} tick={{ fill: axisStroke }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={
-                    isDark
-                      ? { backgroundColor: '#1e293b', borderColor: '#475569', color: '#f1f5f9' }
-                      : undefined
+                    isDark ? { backgroundColor: '#1e293b', borderColor: '#475569', color: '#f1f5f9' } : undefined
                   }
                 />
-                <Bar dataKey="count" name="Одиниць" fill="#2f4d71" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" name="Одиниць" fill="#2f4d71" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </SectionCard>
       </div>
 
+      {/* PRINT incidents-by-status table */}
       <div className="hidden print:block print-section">
         <h3 className="mb-2 text-base font-semibold">Інциденти за статусом</h3>
         <table className="print-table">
@@ -361,9 +660,9 @@ function ReportsPage() {
         </table>
       </div>
 
-      <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <h3 className="text-lg font-semibold text-slate-800">Обладнання: довідник і журнал</h3>
-        <div className="mt-3 overflow-x-auto screen-only-table">
+      {/* ── Equipment table ── */}
+      <SectionCard title="Обладнання: довідник і журнал">
+        <div className="overflow-x-auto screen-only-table">
           <table className="min-w-full text-left text-sm text-slate-700">
             <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
               <tr>
@@ -405,12 +704,106 @@ function ReportsPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </SectionCard>
 
-      <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <h3 className="text-lg font-semibold text-slate-800">Інциденти за період</h3>
-        <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto text-sm text-slate-700 screen-only-table">
-          {recentIncidents.length === 0 && <li className="text-slate-500">Немає записів за обраний період.</li>}
+      {/* ── Cost analysis ── */}
+      <SectionCard title="Аналіз собівартості">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-700">Загальна вартість за рецептами, ₴</p>
+            <div className="screen-only-charts h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={costByRecipe} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} horizontal={false} />
+                  <XAxis
+                    type="number"
+                    stroke={axisStroke}
+                    tick={{ fill: axisStroke, fontSize: 11 }}
+                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="recipe"
+                    width={170}
+                    stroke={axisStroke}
+                    tick={{ fill: axisStroke, fontSize: 10 }}
+                  />
+                  <Tooltip
+                    formatter={(v) => `${v.toLocaleString('uk-UA')} ₴`}
+                    contentStyle={
+                      isDark
+                        ? { backgroundColor: '#1e293b', borderColor: '#475569', color: '#f1f5f9' }
+                        : undefined
+                    }
+                  />
+                  <Bar dataKey="totalCostUah" name="Вартість, ₴" fill="#2f4d71" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-700">Собівартість на тонну, ₴/т</p>
+            <div className="screen-only-charts h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={costByRecipe} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} horizontal={false} />
+                  <XAxis type="number" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} />
+                  <YAxis
+                    type="category"
+                    dataKey="recipe"
+                    width={170}
+                    stroke={axisStroke}
+                    tick={{ fill: axisStroke, fontSize: 10 }}
+                  />
+                  <Tooltip
+                    formatter={(v) => `${v.toLocaleString('uk-UA')} ₴/т`}
+                    contentStyle={
+                      isDark
+                        ? { backgroundColor: '#1e293b', borderColor: '#475569', color: '#f1f5f9' }
+                        : undefined
+                    }
+                  />
+                  <Bar dataKey="costPerTon" name="₴/т" fill="#ea580c" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+        <table className="print-table mt-4">
+          <thead>
+            <tr>
+              <th>Рецепт</th>
+              <th>Вироблено, т</th>
+              <th>Загальна вартість, ₴</th>
+              <th>Собівартість, ₴/т</th>
+            </tr>
+          </thead>
+          <tbody>
+            {costByRecipe.map((row) => (
+              <tr key={row.recipe}>
+                <td>{row.recipe}</td>
+                <td>{row.producedTons}</td>
+                <td>{row.totalCostUah.toLocaleString('uk-UA')}</td>
+                <td>{row.costPerTon.toLocaleString('uk-UA')}</td>
+              </tr>
+            ))}
+            {costByRecipe.length === 0 && (
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8' }}>
+                  Немає даних за обраний період.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </SectionCard>
+
+      {/* ── Incidents list ── */}
+      <SectionCard title="Інциденти за період">
+        <ul className="max-h-64 space-y-2 overflow-y-auto text-sm text-slate-700 screen-only-table">
+          {recentIncidents.length === 0 && (
+            <li className="text-slate-500">Немає записів за обраний період.</li>
+          )}
           {recentIncidents.map((item) => (
             <li key={item.id} className="border-b border-slate-100 pb-2">
               <span className="text-xs text-slate-500">{item.time}</span> ·{' '}
@@ -443,27 +836,30 @@ function ReportsPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </SectionCard>
 
+      {/* ── Production charts ── */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm screen-only-charts">
-          <h3 className="text-lg font-semibold text-slate-800">Виробництво по датах, т</h3>
-          <div className="mt-4 h-64">
+        <SectionCard title="Виробництво по датах, т">
+          <div className="screen-only-charts h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={productionByDate}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                 <XAxis dataKey="date" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} />
                 <YAxis stroke={axisStroke} tick={{ fill: axisStroke }} />
                 <Tooltip />
-                <Line type="monotone" dataKey="producedTons" name="Вироблено, т" stroke="#2f4d71" />
+                <Line
+                  type="monotone"
+                  dataKey="producedTons"
+                  name="Вироблено, т"
+                  stroke="#2f4d71"
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: '#2f4d71' }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
-        <div className="hidden print:block print-section">
-          <h3 className="mb-2 text-base font-semibold">Виробництво по датах, т</h3>
-          <table className="print-table">
+          <table className="print-table mt-3 hidden print:table">
             <thead>
               <tr>
                 <th>Дата</th>
@@ -479,18 +875,17 @@ function ReportsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </SectionCard>
 
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-800">Виробництво по рецептах, т</h3>
-          <div className="screen-only-charts mt-4 h-56">
+        <SectionCard title="Виробництво по рецептах, т">
+          <div className="screen-only-charts h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={productionByRecipe}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                 <XAxis dataKey="recipe" hide />
                 <YAxis stroke={axisStroke} tick={{ fill: axisStroke }} />
                 <Tooltip />
-                <Bar dataKey="producedTons" name="Вироблено, т" fill="#ea580c" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="producedTons" name="Вироблено, т" fill="#ea580c" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -510,13 +905,13 @@ function ReportsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </SectionCard>
       </div>
 
+      {/* ── Storage & movements ── */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-800">Залишки сировини, кг</h3>
-          <div className="screen-only-charts mt-4 h-72">
+        <SectionCard title="Залишки сировини, кг">
+          <div className="screen-only-charts h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={storagePieData} dataKey="value" nameKey="name" outerRadius={90} label>
@@ -545,11 +940,10 @@ function ReportsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </SectionCard>
 
-        <div className="print-section rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-800">Рухи сировини за період</h3>
-          <div className="screen-only-charts mt-4 h-64">
+        <SectionCard title="Рухи сировини за період">
+          <div className="screen-only-charts h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={movementsChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
@@ -587,7 +981,7 @@ function ReportsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </SectionCard>
       </div>
     </section>
   )

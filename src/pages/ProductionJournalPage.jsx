@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react'
 import ConfirmModal from '../components/common/ConfirmModal'
+import PrintHeader from '../components/common/PrintHeader'
+import PageHero from '../components/common/PageHero'
+import {
+  ExportPdfButton,
+  ExportXlsxButton,
+  HeroActionButton,
+} from '../components/common/ExportButtons'
 import { useAppData } from '../context/AppDataContext'
+import { useAuth } from '../context/AuthContext'
 import { exportRows } from '../utils/xlsxExport'
 
 const defaultBatch = {
@@ -11,6 +19,8 @@ const defaultBatch = {
 
 function ProductionJournalPage() {
   const { batches, recipes, activeShift, addBatch, updateBatch, deleteBatch } = useAppData()
+  const { role } = useAuth()
+  const isReadOnly = role === 'accountant'
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ ...defaultBatch, recipe: recipes[0]?.name || '' })
   const [search, setSearch] = useState('')
@@ -21,21 +31,25 @@ function ProductionJournalPage() {
   const [deleteBatchId, setDeleteBatchId] = useState(null)
   const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' })
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     if (editingBatchId) {
-      updateBatch(editingBatchId, {
+      const result = await updateBatch(editingBatchId, {
         line: formData.line,
         recipe: formData.recipe,
         feedProducedKg: Number(formData.feedProducedKg),
       })
+      if (result && !result.ok) {
+        setError(result.error)
+        return
+      }
       setEditingBatchId(null)
       setFormData({ ...defaultBatch, recipe: recipes[0]?.name || '' })
       setShowForm(false)
       return
     }
 
-    const result = addBatch({
+    const result = await addBatch({
       line: formData.line,
       recipeName: formData.recipe,
       feedProducedKg: Number(formData.feedProducedKg),
@@ -94,54 +108,64 @@ function ProductionJournalPage() {
     [sortedBatches],
   )
 
+  const buildExportPayload = () => ({
+    filename: `journal-vyrobnytstva-${new Date().toISOString().slice(0, 10)}`,
+    sheetName: 'Партії',
+    rows: sortedBatches.map((b) => ({
+      ID: b.id,
+      Час: b.createdAt,
+      Лінія: b.line || 'Лінія 1',
+      Рецепт: b.recipe,
+      'Списано, кг': b.rawSpentKg,
+      'Вироблено, кг': b.feedProducedKg,
+      'Собівартість, грн': b.batchCostUah,
+    })),
+    options: {
+      docTitle: 'Журнал виробництва',
+      docSubtitle: `Комбікормовий завод · станом на ${new Date().toLocaleDateString('uk-UA')}`,
+      sheetTitle: 'Зведення виробничих партій',
+      sectionTitle: `Партії (${sortedBatches.length} шт)`,
+      totals: {
+        ID: 'Разом',
+        Час: '',
+        Лінія: '',
+        Рецепт: '',
+        'Списано, кг': totalRawSpentKg,
+        'Вироблено, кг': totalProducedKg,
+        'Собівартість, грн': totalCostUah,
+      },
+    },
+  })
+
   const handleExportXlsx = () => {
-    exportRows(
-      `journal-vyrobnytstva-${new Date().toISOString().slice(0, 10)}.xlsx`,
-      'Партії',
-      sortedBatches.map((b) => ({
-        ID: b.id,
-        Час: b.createdAt,
-        Лінія: b.line || 'Лінія 1',
-        Рецепт: b.recipe,
-        'Списано_кг': b.rawSpentKg,
-        'Вироблено_кг': b.feedProducedKg,
-        'Собівартість_грн': b.batchCostUah,
-      })),
-    )
+    const p = buildExportPayload()
+    exportRows(`${p.filename}.xlsx`, p.sheetName, p.rows, p.options)
+  }
+
+  const handleExportPdf = async () => {
+    const { exportRowsPdf } = await import('../utils/pdfExport')
+    const p = buildExportPayload()
+    exportRowsPdf(`${p.filename}.pdf`, p.sheetName, p.rows, { ...p.options, orientation: 'landscape' })
   }
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-white p-4 shadow-sm print-section">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-800">Журнал виробництва</h3>
-          <p className="print-muted text-sm">Дата друку: {new Date().toLocaleString('uk-UA')}</p>
-        </div>
-        <div className="no-print flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleExportXlsx}
-            className="rounded-md border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800"
-          >
-            Експорт у Excel
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
-          >
-            Роздрукувати звіт
-          </button>
-          <button
-            type="button"
+      <PrintHeader title="Журнал виробництва" />
+      <PageHero
+        title="Журнал виробництва"
+        subtitle={`${sortedBatches.length} партій · ${totalProducedKg.toLocaleString('uk-UA')} кг вироблено`}
+      >
+        <ExportPdfButton onClick={handleExportPdf} />
+        <ExportXlsxButton onClick={handleExportXlsx} />
+        {!isReadOnly && (
+          <HeroActionButton
             disabled={!activeShift}
             onClick={() => setShowForm((prev) => !prev)}
-            className="rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            Додати партію
-          </button>
-        </div>
-      </div>
+            + Додати партію
+          </HeroActionButton>
+        )}
+      </PageHero>
       {!activeShift && (
         <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
           Зараз немає відкритої зміни. Щоб додати партію, відкрийте зміну на сторінці управління змінами.
@@ -248,7 +272,7 @@ function ProductionJournalPage() {
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('rawSpentKg')}>Витрачено, кг {sortArrow('rawSpentKg')}</th>
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('feedProducedKg')}>Вироблено, кг {sortArrow('feedProducedKg')}</th>
               <th className="cursor-pointer px-4 py-3" onClick={() => handleSort('batchCostUah')}>Собівартість, грн {sortArrow('batchCostUah')}</th>
-              <th className="print-hide-col px-4 py-3">Дії</th>
+              {!isReadOnly && <th className="print-hide-col px-4 py-3">Дії</th>}
             </tr>
           </thead>
           <tbody>
@@ -262,32 +286,34 @@ function ProductionJournalPage() {
                 <td className="px-4 py-3">
                   {batch.batchCostUah ? batch.batchCostUah.toLocaleString('uk-UA') : '—'}
                 </td>
-                <td className="print-hide-col px-4 py-3">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingBatchId(batch.id)
-                        setFormData({
-                          line: batch.line || 'Лінія 1',
-                          recipe: batch.recipe,
-                          feedProducedKg: String(batch.feedProducedKg),
-                        })
-                        setShowForm(true)
-                      }}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-xs"
-                    >
-                      Редагувати
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteBatchId(batch.id)}
-                      className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700"
-                    >
-                      Видалити
-                    </button>
-                  </div>
-                </td>
+                {!isReadOnly && (
+                  <td className="print-hide-col px-4 py-3">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingBatchId(batch.id)
+                          setFormData({
+                            line: batch.line || 'Лінія 1',
+                            recipe: batch.recipe,
+                            feedProducedKg: String(batch.feedProducedKg),
+                          })
+                          setShowForm(true)
+                        }}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                      >
+                        Редагувати
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteBatchId(batch.id)}
+                        className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700"
+                      >
+                        Видалити
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react'
+import PrintHeader from '../components/common/PrintHeader'
+import PageHero from '../components/common/PageHero'
+import { ExportPdfButton, ExportXlsxButton } from '../components/common/ExportButtons'
 import { INCIDENT_CATEGORY_LABELS, normalizeIncidentCategory } from '../constants/incidentCategories'
 import { useAppData } from '../context/AppDataContext'
+import { exportReportWorkbook } from '../utils/xlsxExport'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -28,27 +32,111 @@ function DailyOverviewPage() {
     }
   }, [batches, incidents, movements, selectedDate, shifts])
 
+  const buildReportSections = () => [
+    {
+      name: 'Зведення',
+      title: `Зведення за ${selectedDate}`,
+      sections: [
+        {
+          title: 'Ключові показники',
+          kpis: [
+            { label: 'Вироблено', value: data.totalFeedKg, unit: 'кг' },
+            { label: 'Списано сировини', value: data.totalRawSpentKg, unit: 'кг' },
+            { label: 'Інцидентів за день', value: data.dayIncidents.length, unit: 'шт' },
+            { label: 'Активні інциденти', value: data.incidentsActive, unit: 'шт' },
+            { label: 'Партій', value: data.dayBatches.length, unit: 'шт' },
+            { label: 'Змін', value: data.dayShifts.length, unit: 'шт' },
+          ],
+        },
+        {
+          title: 'Зміни за день',
+          headers: ['ID', 'Відкрито', 'Закрито', 'Статус', 'Оператор'],
+          rows: data.dayShifts.map((s) => [s.id, s.openedAt, s.closedAt || '—', s.status, s.operator || '—']),
+        },
+        {
+          title: 'Партії за день',
+          headers: ['Час', 'Лінія', 'Рецепт', 'Вироблено, кг', 'Собівартість, грн'],
+          rows: data.dayBatches.map((b) => [
+            b.createdAt,
+            b.line || 'Лінія 1',
+            b.recipe,
+            Number(b.feedProducedKg) || 0,
+            Number(b.batchCostUah) || 0,
+          ]),
+          totals: [
+            'Разом',
+            '',
+            '',
+            data.totalFeedKg,
+            data.dayBatches.reduce((s, b) => s + (Number(b.batchCostUah) || 0), 0),
+          ],
+        },
+        {
+          title: 'Інциденти за день',
+          headers: ['Час', 'Категорія', 'Обладнання', 'Опис', 'Статус'],
+          rows: data.dayIncidents.map((i) => [
+            i.time,
+            INCIDENT_CATEGORY_LABELS[normalizeIncidentCategory(i.category)] || '—',
+            i.equipment || '—',
+            i.description || '',
+            i.status,
+          ]),
+        },
+        {
+          title: 'Рух сировини за день',
+          headers: ['Час', 'Тип', 'Джерело', 'Пшениця, кг', 'Кукурудза, кг', 'Премікси, кг'],
+          rows: data.dayMovements.map((m) => [
+            m.time,
+            m.type,
+            m.source,
+            m.deltaKg.wheat,
+            m.deltaKg.corn,
+            m.deltaKg.premix,
+          ]),
+        },
+      ],
+    },
+  ]
+
+  const handleExportXlsx = () => {
+    exportReportWorkbook({
+      filename: `zvedennia-${selectedDate}.xlsx`,
+      docTitle: 'Зведення за день',
+      docSubtitle: `Комбікормовий завод · ${selectedDate}`,
+      generatedAt: new Date().toLocaleString('uk-UA'),
+      sheets: buildReportSections(),
+    })
+  }
+
+  const handleExportPdf = async () => {
+    const { exportReportPdf } = await import('../utils/pdfExport')
+    exportReportPdf({
+      filename: `zvedennia-${selectedDate}.pdf`,
+      docTitle: 'Зведення за день',
+      docSubtitle: `Комбікормовий завод · ${selectedDate}`,
+      generatedAt: new Date().toLocaleString('uk-UA'),
+      sheets: buildReportSections(),
+    })
+  }
+
   return (
     <section className="space-y-4">
-      <div className="no-print rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="text-sm font-medium text-slate-700">
+      <PrintHeader title="Зведення за день" subtitle={`Дата: ${selectedDate}`} />
+      <PageHero title="Зведення за день" subtitle={`Дата: ${selectedDate}`}>
+        <ExportPdfButton onClick={handleExportPdf} />
+        <ExportXlsxButton onClick={handleExportXlsx} />
+      </PageHero>
+
+      <div className="no-print rounded-lg border border-slate-300 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+        <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
           Оберіть дату
           <input
             type="date"
             value={selectedDate}
             onChange={(event) => setSelectedDate(event.target.value)}
-            className="ml-3 rounded-md border border-slate-300 px-3 py-2"
+            className="ml-3 rounded-md border border-slate-300 px-3 py-2 dark:border-slate-500 dark:bg-slate-700 dark:text-slate-100"
           />
         </label>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-          >
-            Роздрукувати
-          </button>
-        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">

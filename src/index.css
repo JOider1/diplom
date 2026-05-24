@@ -8,6 +8,27 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+/* Плавне горизонтальне прокручування таблиць на мобільному + м'який скролбар */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.overflow-x-auto::-webkit-scrollbar {
+  height: 6px;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 3px;
+}
+
+/* Канбан на мобільному — колонки одна під одною на повну ширину */
+@media (max-width: 1023px) {
+  .kanban-mobile-stack > div {
+    min-width: 0 !important;
+    width: 100%;
+  }
+}
+
 .dark body {
   @apply bg-slate-900 text-slate-100;
 }
@@ -152,41 +173,328 @@ body {
   fill: #cbd5e1 !important;
 }
 
+/* ── Темна тема: badges / банери / кольорові фони ── */
+.dark .bg-blue-50 {
+  @apply bg-blue-950/40;
+}
+.dark .bg-blue-100 {
+  @apply bg-blue-950/60;
+}
+.dark .text-blue-800,
+.dark .text-blue-700 {
+  @apply text-blue-200;
+}
+
+.dark .bg-rose-50 {
+  @apply bg-rose-950/40;
+}
+.dark .bg-rose-100 {
+  @apply bg-rose-950/60;
+}
+.dark .border-rose-200 {
+  @apply border-rose-800;
+}
+.dark .border-rose-600 {
+  @apply border-rose-500;
+}
+.dark .text-rose-900,
+.dark .text-rose-800 {
+  @apply text-rose-200;
+}
+.dark .text-rose-700 {
+  @apply text-rose-300;
+}
+.dark .text-rose-600 {
+  @apply text-rose-300;
+}
+
+.dark .bg-emerald-100 {
+  @apply bg-emerald-950/55;
+}
+.dark .text-emerald-800,
+.dark .text-emerald-700 {
+  @apply text-emerald-200;
+}
+
+.dark .bg-amber-100 {
+  @apply bg-amber-950/55;
+}
+.dark .bg-amber-50 {
+  @apply bg-amber-950/40;
+}
+.dark .text-amber-800 {
+  @apply text-amber-200;
+}
+
+.dark .bg-orange-100 {
+  @apply bg-orange-950/55;
+}
+.dark .text-orange-800 {
+  @apply text-orange-200;
+}
+
+/* Прозорі білі фони для іконок у картках */
+.dark .bg-white\/70 {
+  background-color: rgb(51 65 85 / 0.6);
+}
+.dark .bg-white\/10 {
+  background-color: rgb(255 255 255 / 0.08);
+}
+.dark .bg-white\/20 {
+  background-color: rgb(255 255 255 / 0.12);
+}
+
+/* Темна тема: subtle gradients у KPI-картках мають залишатись поверх slate-800 */
+.dark [class*='from-blue-500/10'],
+.dark [class*='from-emerald-500/10'],
+.dark [class*='from-orange-500/10'],
+.dark [class*='from-rose-500/10'],
+.dark [class*='from-amber-500/10'] {
+  background-color: rgb(30 41 59);
+}
+
+/* Hover для toggle-кнопок у темній темі */
+.dark .hover\:bg-white:hover {
+  @apply bg-slate-700;
+}
+
+/* Світло-сірі смуги (toggle group container) */
+.dark .bg-slate-50\/40,
+.dark .from-enterprise-50 {
+  background-color: rgb(30 41 59 / 0.5);
+}
+
+/* Уніфікація тіні в темному режимі для нових rounded-xl карток */
+.dark .shadow-md {
+  box-shadow: 0 4px 8px -2px rgb(0 0 0 / 0.5);
+}
+
+/* Sidebar group labels — лишити читабельними на slate-800 */
+.dark .text-slate-400 {
+  color: #94a3b8;
+}
+
+/* Гарантуємо що NavLink в темній темі чітко контрастує */
+.dark aside .text-slate-700 {
+  color: #e2e8f0;
+}
+
+/* ── Додаткові точкові фікси теми ── */
+
+/* Selects у формах темної теми */
+.dark select option {
+  background-color: rgb(30 41 59);
+  color: rgb(241 245 249);
+}
+
+/* Покращений focus-ring у темному режимі — не дратує око */
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 0.5);
+}
+
+/* Date inputs (нативні calendar) у темному режимі */
+.dark input[type='date']::-webkit-calendar-picker-indicator,
+.dark input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+}
+
+/* Recharts tooltip — окремо в темному режимі */
+.dark .recharts-default-tooltip {
+  background-color: rgb(15 23 42) !important;
+  border-color: rgb(71 85 105) !important;
+  color: rgb(241 245 249) !important;
+}
+.dark .recharts-tooltip-label,
+.dark .recharts-tooltip-item {
+  color: rgb(241 245 249) !important;
+}
+
+/* "Хлібні крихти" / маленькі бейджі з кольоровим фоном без dark-варіанту */
+.dark .bg-enterprise-100 {
+  background-color: rgb(30 58 138 / 0.45);
+}
+.dark .text-enterprise-700,
+.dark .text-enterprise-800 {
+  color: rgb(147 197 253);
+}
+
+/* "Pre" у Audit Log details — темний фон */
+.dark .bg-slate-50.text-slate-700 {
+  background-color: rgb(15 23 42);
+  color: rgb(226 232 240);
+}
+
+/* ── Mobile дрібниці ── */
+@media (max-width: 639px) {
+  /* Заголовки секцій трохи менші */
+  h2.text-2xl { font-size: 1.25rem; line-height: 1.75rem; }
+  h3.text-lg { font-size: 1rem; line-height: 1.4rem; }
+
+  /* Padding всередині карток скромніший на телефоні */
+  .rounded-xl.p-5 { padding: 1rem; }
+
+  /* Кнопки .rounded-md з малим padding теж збільшимо для пальців */
+  button.text-xs { padding: 0.45rem 0.6rem; }
+}
+
+/* На дуже вузьких екранах overlay-меню не лякає шириною */
+@media (max-width: 360px) {
+  aside.w-72 { width: 90vw; }
+}
+
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 18mm 14mm;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
   .no-print {
     display: none !important;
   }
 
   body {
     background: #fff !important;
-    color: #000 !important;
+    color: #1e293b !important;
+    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    line-height: 1.45;
   }
 
+  /* ── Компонент PrintHeader ── */
+  .print-page-header {
+    border-bottom: 3px solid #2f4d71;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+    page-break-after: avoid;
+  }
+
+  .print-header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .print-company-name {
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #64748b;
+    margin: 0 0 3px 0;
+  }
+
+  .print-doc-title {
+    font-size: 17pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    line-height: 1.1;
+  }
+
+  .print-doc-subtitle {
+    font-size: 9pt;
+    color: #475569;
+    margin: 4px 0 0 0;
+  }
+
+  .print-logo-block {
+    text-align: right;
+  }
+
+  .print-logo {
+    font-size: 22pt;
+    font-weight: 900;
+    color: #2f4d71;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .print-generated {
+    font-size: 7.5pt;
+    color: #94a3b8;
+    margin: 2px 0 0 0;
+  }
+
+  /* ── Секції ── */
   .print-section {
     break-inside: avoid;
     page-break-inside: avoid;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 5px;
     box-shadow: none !important;
+    padding: 10px 12px !important;
+    margin-bottom: 10px;
+    background: #fff !important;
   }
 
+  .print-section h3 {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 8px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  /* ── Таблиці ── */
   .print-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 8.5pt;
+    margin-bottom: 0;
   }
 
-  .print-table th,
-  .print-table td {
-    border: 1px solid #cbd5e1;
-    padding: 6px 8px;
+  .print-table thead tr {
+    background-color: #2f4d71 !important;
+  }
+
+  .print-table thead th {
+    color: #ffffff !important;
+    padding: 7px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: none;
+    white-space: nowrap;
+  }
+
+  .print-table tbody tr:nth-child(even) {
+    background-color: #f8fafc !important;
+  }
+
+  .print-table tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+  }
+
+  .print-table tbody td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #e2e8f0;
     vertical-align: top;
+    color: #1e293b;
+  }
+
+  .print-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* ── Службові ── */
+  .print-muted {
+    color: #64748b !important;
+    font-size: 8pt;
   }
 
   .print-hide-col {
     display: none !important;
-  }
-
-  .print-muted {
-    color: #475569 !important;
   }
 
   .screen-only-charts {
@@ -197,15 +505,18 @@ body {
     display: none !important;
   }
 
+  /* ── Заголовок ReportsPage (legacy) ── */
   .report-print-header {
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #2f4d71;
+    display: block !important;
+    border-bottom: 3px solid #2f4d71;
+    padding-bottom: 14px;
+    margin-bottom: 20px;
   }
 
-  .print-section {
-    border: 1px solid #cbd5e1 !important;
-    margin-bottom: 12px;
-    padding: 12px !important;
+  .report-print-header h1 {
+    font-size: 17pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 4px 0;
   }
 }

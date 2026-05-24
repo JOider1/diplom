@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import PrintHeader from '../components/common/PrintHeader'
+import PageHero from '../components/common/PageHero'
+import { ExportPdfButton, ExportXlsxButton } from '../components/common/ExportButtons'
 import { useAppData } from '../context/AppDataContext'
 import { exportRows } from '../utils/xlsxExport'
 import { buildShiftOpeningData } from '../utils/shiftOpeningFromWarehouse'
@@ -21,15 +24,15 @@ function ShiftManagementPage() {
     [equipment, incidents, storageKg],
   )
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    const result = openShift({ openingData: openingPreview, notes, operator })
+    const result = await openShift({ openingData: openingPreview, notes, operator })
     setToastType(result.ok ? 'success' : 'error')
     setToastMessage(result.ok ? 'Зміну успішно відкрито.' : result.error)
   }
 
-  const handleCloseShift = () => {
-    const result = closeShift(closeNotes)
+  const handleCloseShift = async () => {
+    const result = await closeShift(closeNotes)
     setToastType(result.ok ? 'success' : 'error')
     setToastMessage(result.ok ? 'Зміну успішно закрито.' : result.error)
     if (result.ok) {
@@ -106,51 +109,54 @@ function ShiftManagementPage() {
     }
   }, [batches, shifts])
 
+  const buildExportPayload = () => ({
+    filename: `shifts-${new Date().toISOString().slice(0, 10)}`,
+    sheetName: 'Зміни',
+    rows: sortedShifts.map((s) => ({
+      ID: s.id,
+      Відкрито: s.openedAt,
+      Закрито: s.closedAt || '—',
+      Статус: s.status,
+      Оператор: s.operator || '—',
+      Коментар: s.notes || '—',
+      'Пшениця, т': s.openingData?.wheat,
+      'Кукурудза, т': s.openingData?.corn,
+      'Премікси, т': s.openingData?.premix,
+      'Лінія 1': s.openingData?.granulationLine1,
+      'Лінія 2': s.openingData?.granulationLine2,
+    })),
+    options: {
+      docTitle: 'Журнал виробничих змін',
+      docSubtitle: `Комбікормовий завод · показано ${sortedShifts.length} змін`,
+      sheetTitle: 'Виробничі зміни',
+      sectionTitle: 'Зміни',
+    },
+  })
+
   const handleExportXlsx = () => {
-    exportRows(
-      `shifts-${new Date().toISOString().slice(0, 10)}.xlsx`,
-      'Зміни',
-      sortedShifts.map((s) => ({
-        ID: s.id,
-        Відкрито: s.openedAt,
-        Закрито: s.closedAt || '—',
-        Статус: s.status,
-        Оператор: s.operator || '—',
-        Коментар: s.notes || '—',
-        'Пшениця (т, зі складу)': s.openingData?.wheat,
-        'Кукурудза (т)': s.openingData?.corn,
-        'Премікси (т)': s.openingData?.premix,
-        'Лінія 1': s.openingData?.granulationLine1,
-        'Лінія 2': s.openingData?.granulationLine2,
-        Обладнання_з_журналу: s.openingData?.equipmentByIncidents
-          ?.map((r) => `${r.name}: ${r.fromIncidents}`)
-          .join('; '),
-      })),
-    )
+    const p = buildExportPayload()
+    exportRows(`${p.filename}.xlsx`, p.sheetName, p.rows, p.options)
+  }
+
+  const handleExportPdf = async () => {
+    const { exportRowsPdf } = await import('../utils/pdfExport')
+    const p = buildExportPayload()
+    exportRowsPdf(`${p.filename}.pdf`, p.sheetName, p.rows, { ...p.options, orientation: 'landscape' })
   }
 
   return (
-    <section className="rounded-lg border border-slate-300 bg-white p-5 shadow-sm">
-      <div className="no-print flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold text-slate-800">Управління змінами</h3>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleExportXlsx}
-            className="rounded-md border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
-          >
-            Експорт у Excel
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-          >
-            Роздрукувати
-          </button>
-        </div>
-      </div>
-      <p className="mt-1 text-sm text-slate-600">
+    <section className="space-y-4">
+      <PrintHeader title="Управління змінами" />
+      <PageHero
+        title="Управління змінами"
+        subtitle={activeShift ? `Активна зміна від ${activeShift.openedAt}` : `${sortedShifts.length} змін у журналі`}
+      >
+        <ExportPdfButton onClick={handleExportPdf} />
+        <ExportXlsxButton onClick={handleExportXlsx} />
+      </PageHero>
+
+      <div className="rounded-lg border border-slate-300 bg-white p-5 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+      <p className="text-sm text-slate-600 dark:text-slate-300">
         Залишки сировини (т) — зі складу; стан ліній і обладнання — з{' '}
         <strong>журналу інцидентів</strong> (активні інциденти та останні записи). Довідник обладнання
         показано для порівняння в таблиці нижче.
@@ -358,6 +364,7 @@ function ShiftManagementPage() {
             ))}
           </tbody>
         </table>
+      </div>
       </div>
     </section>
   )

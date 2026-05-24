@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import ConfirmModal from '../components/common/ConfirmModal'
 import IncidentKanbanBoard from '../components/incidents/IncidentKanbanBoard'
+import PrintHeader from '../components/common/PrintHeader'
+import PageHero from '../components/common/PageHero'
+import { ExportPdfButton, ExportXlsxButton } from '../components/common/ExportButtons'
 import {
   INCIDENT_CATEGORY_EQUIPMENT,
   INCIDENT_CATEGORY_OPTIONS,
@@ -44,7 +47,7 @@ function IncidentsPage() {
     return otherPlaceholders[cat] || otherPlaceholders.other
   }, [formData.category])
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     const payload = {
       ...formData,
@@ -52,12 +55,12 @@ function IncidentsPage() {
       category: normalizeIncidentCategory(formData.category),
     }
     if (editingId) {
-      updateIncident(editingId, payload)
+      await updateIncident(editingId, payload)
       setEditingId(null)
       setFormData(defaultIncident)
       return
     }
-    addIncident(payload)
+    await addIncident(payload)
     setFormData(defaultIncident)
   }
 
@@ -86,40 +89,47 @@ function IncidentsPage() {
     [filteredIncidents],
   )
 
+  const buildExportPayload = () => ({
+    filename: `incidents-${new Date().toISOString().slice(0, 10)}`,
+    sheetName: 'Інциденти',
+    rows: filteredIncidents.map((i) => ({
+      ID: i.id,
+      Час: i.time,
+      Категорія: INCIDENT_CATEGORY_OPTIONS.find((o) => o.value === normalizeIncidentCategory(i.category))?.label,
+      'Обладнання / місце': i.equipment,
+      Опис: i.description,
+      Пріоритет: i.severity || 'Середня',
+      Статус: i.status,
+    })),
+    options: {
+      docTitle: 'Журнал інцидентів',
+      docSubtitle: `Комбікормовий завод · фільтр повернув ${filteredIncidents.length} записів`,
+      sheetTitle: 'Деталізований список інцидентів',
+      sectionTitle: 'Інциденти',
+    },
+  })
+
   const handleExportXlsx = () => {
-    exportRows(
-      `incidents-${new Date().toISOString().slice(0, 10)}.xlsx`,
-      'Інциденти',
-      filteredIncidents.map((i) => ({
-        id: i.id,
-        Час: i.time,
-        Категорія: INCIDENT_CATEGORY_OPTIONS.find((o) => o.value === normalizeIncidentCategory(i.category))?.label,
-        'Обладнання / місце': i.equipment,
-        Опис: i.description,
-        Пріоритет: i.severity || 'Середня',
-        Статус: i.status,
-      })),
-    )
+    const p = buildExportPayload()
+    exportRows(`${p.filename}.xlsx`, p.sheetName, p.rows, p.options)
+  }
+
+  const handleExportPdf = async () => {
+    const { exportRowsPdf } = await import('../utils/pdfExport')
+    const p = buildExportPayload()
+    exportRowsPdf(`${p.filename}.pdf`, p.sheetName, p.rows, { ...p.options, orientation: 'landscape' })
   }
 
   return (
     <section className="space-y-4">
-      <div className="no-print flex flex-wrap justify-end gap-2">
-        <button
-          type="button"
-          onClick={handleExportXlsx}
-          className="rounded-md border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
-        >
-          Експорт у Excel
-        </button>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-        >
-          Роздрукувати звіт
-        </button>
-      </div>
+      <PrintHeader title="Журнал інцидентів" />
+      <PageHero
+        title="Журнал інцидентів"
+        subtitle={`${filteredIncidents.length} записів за фільтром`}
+      >
+        <ExportPdfButton onClick={handleExportPdf} />
+        <ExportXlsxButton onClick={handleExportXlsx} />
+      </PageHero>
 
       <form
         onSubmit={handleSubmit}

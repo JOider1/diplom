@@ -1,65 +1,103 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { rpcAppLogin } from '../lib/db'
 import { ROLE_OPTIONS } from '../data/users'
 
 const AuthContext = createContext(null)
-const STORAGE_KEY = 'diplom-auth-session'
-const LEGACY_KEY = 'diplom-auth-role'
+const SESSION_KEY = 'dsj-session'
 
-function readSession() {
-  if (typeof window === 'undefined') {
-    return null
-  }
+const readSession = () => {
+  if (typeof window === 'undefined') return null
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
+    const raw = window.localStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.id || !parsed?.login || !parsed?.role) return null
+    return parsed
   } catch {
     return null
   }
 }
 
-export function AuthProvider({ children }) {
-  const [session, setSession] = useState(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem(LEGACY_KEY)) {
-      localStorage.removeItem(LEGACY_KEY)
-    }
-    return readSession()
-  })
+const writeSession = (user) => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify(user))
+  } catch {}
+}
 
-  const login = useCallback((user) => {
-    const nextSession = {
-      userId: user.id,
-      role: user.role,
-      displayName: user.displayName,
-      login: user.login,
+const clearSession = () => {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(SESSION_KEY)
+    // на всякий — чистимо застарілі Supabase-Auth токени
+    const toRemove = []
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const k = window.localStorage.key(i)
+      if (k && (k.startsWith('sb-') || k.toLowerCase().includes('supabase'))) {
+        toRemove.push(k)
+      }
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSession))
-    setSession(nextSession)
-    return { ok: true }
+    toRemove.forEach((k) => window.localStorage.removeItem(k))
+  } catch {}
+}
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(() => readSession())
+  // authReady true одразу — нема асинхронного відновлення
+  const [authReady] = useState(true)
+
+  // login: викликає RPC, зберігає в localStorage
+  const login = useCallback(async (loginValue, password) => {
+    try {
+      const u = await rpcAppLogin((loginValue || '').trim(), password || '')
+      if (!u.active) {
+        return { ok: false, error: 'Обліковий запис деактивовано' }
+      }
+      writeSession(u)
+      setUser(u)
+      return { ok: true, user: u }
+    } catch (e) {
+      const msg = e?.message || String(e)
+      return { ok: false, error: msg }
+    }
   }, [])
 
+  // logout: чистить localStorage + редіректить
   const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-    setSession(null)
+    clearSession()
+    setUser(null)
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.replace('/login')
+    }
+  }, [])
+
+  // refresh user data (наприклад після зміни ролі адміном)
+  const refreshUser = useCallback(() => {
+    setUser(readSession())
   }, [])
 
   const roleLabel = useMemo(
-    () => ROLE_OPTIONS.find((option) => option.value === session?.role)?.label ?? '—',
-    [session?.role],
+    () => ROLE_OPTIONS.find((option) => option.value === user?.role)?.label ?? '—',
+    [user?.role],
   )
 
   const contextValue = useMemo(
     () => ({
-      userId: session?.userId ?? '',
-      role: session?.role ?? '',
-      displayName: session?.displayName ?? '',
-      userLogin: session?.login ?? '',
+      userId: user?.id ?? '',
+      sessionUserId: user?.id ?? '',
+      role: user?.role ?? '',
+      displayName: user?.displayName ?? '',
+      userLogin: user?.login ?? '',
       roleLabel,
-      isAuthenticated: Boolean(session?.userId),
+      isAuthenticated: Boolean(user?.id),
+      hasProfile: Boolean(user?.id),
+      authReady,
       roleOptions: ROLE_OPTIONS,
       login,
       logout,
+      refreshUser,
     }),
-    [login, logout, roleLabel, session],
+    [authReady, login, logout, refreshUser, roleLabel, user],
   )
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>

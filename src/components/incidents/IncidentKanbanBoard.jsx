@@ -126,8 +126,9 @@ export default function IncidentKanbanBoard({ incidents, onStatusChange, onEdit,
       return id
     }
     if (id.startsWith('incident-')) {
-      const nid = Number(id.replace('incident-', ''))
-      const target = incidents.find((i) => i.id === nid)
+      // ID інциденту — UUID-рядок, НЕ число
+      const incidentId = id.slice('incident-'.length)
+      const target = incidents.find((i) => String(i.id) === incidentId)
       return target?.status ?? null
     }
     return null
@@ -140,8 +141,8 @@ export default function IncidentKanbanBoard({ incidents, onStatusChange, onEdit,
       onDragStart={({ active }) => {
         const id = String(active.id)
         if (id.startsWith('incident-')) {
-          const nid = Number(id.replace('incident-', ''))
-          setActiveIncident(incidents.find((i) => i.id === nid) ?? null)
+          const incidentId = id.slice('incident-'.length)
+          setActiveIncident(incidents.find((i) => String(i.id) === incidentId) ?? null)
         }
       }}
       onDragEnd={({ active, over }) => {
@@ -157,15 +158,16 @@ export default function IncidentKanbanBoard({ incidents, onStatusChange, onEdit,
         if (!id.startsWith('incident-')) {
           return
         }
-        const incidentId = Number(id.replace('incident-', ''))
-        const current = incidents.find((i) => i.id === incidentId)
+        const incidentId = id.slice('incident-'.length)
+        const current = incidents.find((i) => String(i.id) === incidentId)
         if (current && current.status !== nextStatus) {
-          onStatusChange(incidentId, nextStatus)
+          // передаємо ORIGINAL id (UUID-рядок або число — як було)
+          onStatusChange(current.id, nextStatus)
         }
       }}
       onDragCancel={() => setActiveIncident(null)}
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="kanban-mobile-stack flex flex-col gap-4 lg:flex-row lg:items-start">
         {byColumn.map(({ status, items }) => (
           <KanbanColumn key={status} status={status} count={items.length}>
             {items.map((incident) => (

@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import PageHero from '../components/common/PageHero'
+import { ExportPdfButton, ExportXlsxButton } from '../components/common/ExportButtons'
 import { useAppData } from '../context/AppDataContext'
 import { exportRows } from '../utils/xlsxExport'
 
@@ -14,8 +16,31 @@ function formatDetails(details) {
 }
 
 function AuditLogPage() {
-  const { auditLog } = useAppData()
+  const { auditLog, refreshAuditLog } = useAppData()
   const [search, setSearch] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+
+  // підтягуємо свіжий журнал при відкритті сторінки
+  useEffect(() => {
+    let cancelled = false
+    setRefreshing(true)
+    Promise.resolve(refreshAuditLog())
+      .finally(() => {
+        if (!cancelled) setRefreshing(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [refreshAuditLog])
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await refreshAuditLog()
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -28,35 +53,49 @@ function AuditLogPage() {
     })
   }, [auditLog, search])
 
+  const buildExportPayload = () => ({
+    filename: `audit-log-${new Date().toISOString().slice(0, 10)}`,
+    sheetName: 'Аудит',
+    rows: filtered.map((e) => ({
+      Час: e.at,
+      Хто: e.actor,
+      Роль: e.role,
+      Дія: e.action,
+      Деталі: formatDetails(e.details),
+    })),
+    options: {
+      docTitle: 'Журнал аудиту дій користувачів',
+      docSubtitle: `Комбікормовий завод · ${filtered.length} записів`,
+      sheetTitle: 'Audit Log',
+      sectionTitle: 'Список дій',
+    },
+  })
+
   const handleExport = () => {
-    exportRows(
-      `audit-log-${new Date().toISOString().slice(0, 10)}.xlsx`,
-      'Audit',
-      filtered.map((e) => ({
-        Час: e.at,
-        Хто: e.actor,
-        Роль: e.role,
-        Дія: e.action,
-        Деталі: formatDetails(e.details),
-      })),
-    )
+    const p = buildExportPayload()
+    exportRows(`${p.filename}.xlsx`, p.sheetName, p.rows, p.options)
+  }
+
+  const handleExportPdf = async () => {
+    const { exportRowsPdf } = await import('../utils/pdfExport')
+    const p = buildExportPayload()
+    exportRowsPdf(`${p.filename}.pdf`, p.sheetName, p.rows, { ...p.options, orientation: 'landscape' })
   }
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-800">Audit Log</h3>
-          <p className="text-sm text-slate-600">Історія дій у системі: хто, коли, що змінив.</p>
-        </div>
+      <PageHero title="Журнал аудиту" subtitle="Історія дій у системі — хто, коли, що змінив">
         <button
           type="button"
-          onClick={handleExport}
-          className="rounded-md border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800"
+          onClick={handleManualRefresh}
+          disabled={refreshing}
+          className="rounded-lg border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-white/20 hover:shadow-lg disabled:opacity-60"
         >
-          Експорт у Excel
+          {refreshing ? '⏳ Оновлення…' : '🔄 Оновити'}
         </button>
-      </div>
+        <ExportPdfButton onClick={handleExportPdf} />
+        <ExportXlsxButton onClick={handleExport} />
+      </PageHero>
 
       <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
         <input

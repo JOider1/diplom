@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import ConfirmModal from '../components/common/ConfirmModal'
+import PageHero from '../components/common/PageHero'
 import { useAppData } from '../context/AppDataContext'
+import { useAuth } from '../context/AuthContext'
 
 const defaultRecipe = {
   name: '',
@@ -10,6 +12,8 @@ const defaultRecipe = {
 
 function RecipesPage() {
   const { recipes, getRecipeCostPerTon, addRecipe, updateRecipe, deleteRecipe } = useAppData()
+  const { role } = useAuth()
+  const isReadOnly = role === 'accountant'
   const [formData, setFormData] = useState(defaultRecipe)
   const [editingId, setEditingId] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
@@ -19,13 +23,13 @@ function RecipesPage() {
     [recipes],
   )
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     if (editingId) {
-      updateRecipe(editingId, formData)
+      await updateRecipe(editingId, formData)
       setEditingId(null)
     } else {
-      addRecipe(formData)
+      await addRecipe(formData)
     }
     setFormData(defaultRecipe)
   }
@@ -37,6 +41,17 @@ function RecipesPage() {
 
   return (
     <section className="space-y-4">
+      <PageHero
+        title="Рецепти комбікормів"
+        subtitle={`${sortedRecipes.length} рецептів · перегляд складу та собівартості`}
+      />
+
+      {isReadOnly && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-200">
+          Перегляд рецептів та собівартості. Для редагування потрібен доступ адміністратора або менеджера зміни.
+        </div>
+      )}
+      {!isReadOnly && (
       <form
         onSubmit={handleSubmit}
         className="grid gap-3 rounded-lg border border-slate-300 bg-white p-4 shadow-sm md:grid-cols-4"
@@ -136,6 +151,7 @@ function RecipesPage() {
           {editingId ? 'Оновити рецепт' : 'Додати рецепт'}
         </button>
       </form>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white shadow-sm">
         <table className="min-w-full text-left text-sm text-slate-700">
@@ -144,7 +160,7 @@ function RecipesPage() {
               <th className="px-4 py-3">Рецепт</th>
               <th className="px-4 py-3">Собівартість, грн/т</th>
               <th className="px-4 py-3">Кг на 1 т</th>
-              <th className="px-4 py-3">Дія</th>
+              {!isReadOnly && <th className="px-4 py-3">Дія</th>}
             </tr>
           </thead>
           <tbody>
@@ -156,24 +172,26 @@ function RecipesPage() {
                   Пш {recipe.consumptionKgPerTon.wheat}, Кк {recipe.consumptionKgPerTon.corn}, Пр{' '}
                   {recipe.consumptionKgPerTon.premix}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(recipe)}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-xs"
-                    >
-                      Редагувати
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteId(recipe.id)}
-                      className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700"
-                    >
-                      Видалити
-                    </button>
-                  </div>
-                </td>
+                {!isReadOnly && (
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(recipe)}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                      >
+                        Редагувати
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteId(recipe.id)}
+                        className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-700"
+                      >
+                        Видалити
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
