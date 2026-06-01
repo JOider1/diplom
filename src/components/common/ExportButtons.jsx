@@ -1,8 +1,10 @@
+import { DocumentArrowDownIcon, SpreadsheetIcon } from './Icons'
+
 // На мобільному кнопки на повну ширину. На sm+ — auto-розмір.
 const BASE =
-  'flex-1 sm:flex-none rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60 sm:px-5'
+  'flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-60 sm:px-5'
 
-export function ExportPdfButton({ onClick, label = '📄 PDF', disabled, type = 'button' }) {
+export function ExportPdfButton({ onClick, disabled, type = 'button' }) {
   return (
     <button
       type={type}
@@ -10,13 +12,14 @@ export function ExportPdfButton({ onClick, label = '📄 PDF', disabled, type = 
       disabled={disabled}
       className={`${BASE} bg-rose-500 hover:bg-rose-600`}
     >
-      <span className="hidden sm:inline">📄 Експорт у PDF</span>
-      <span className="sm:hidden">{label}</span>
+      <DocumentArrowDownIcon className="w-4 h-4 shrink-0" />
+      <span className="hidden sm:inline">Експорт у PDF</span>
+      <span className="sm:hidden">PDF</span>
     </button>
   )
 }
 
-export function ExportXlsxButton({ onClick, label = '📊 Excel', disabled, type = 'button' }) {
+export function ExportXlsxButton({ onClick, disabled, type = 'button' }) {
   return (
     <button
       type={type}
@@ -24,8 +27,9 @@ export function ExportXlsxButton({ onClick, label = '📊 Excel', disabled, type
       disabled={disabled}
       className={`${BASE} bg-emerald-500 hover:bg-emerald-600`}
     >
-      <span className="hidden sm:inline">📊 Експорт у Excel</span>
-      <span className="sm:hidden">{label}</span>
+      <SpreadsheetIcon className="w-4 h-4 shrink-0" />
+      <span className="hidden sm:inline">Експорт у Excel</span>
+      <span className="sm:hidden">Excel</span>
     </button>
   )
 }

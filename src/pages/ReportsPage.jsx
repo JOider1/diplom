@@ -1,5 +1,14 @@
 import { useMemo, useState } from 'react'
 import {
+  FactoryIcon,
+  BanknotesIcon,
+  ExclamationTriangleIcon,
+  WrenchIcon,
+  CubeIcon,
+  DocumentArrowDownIcon,
+  SpreadsheetIcon,
+} from '../components/common/Icons'
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -469,16 +478,18 @@ function ReportsPage() {
             <button
               type="button"
               onClick={handleExportPdf}
-              className="rounded-lg bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-rose-600 hover:shadow-lg"
+              className="inline-flex items-center gap-2 rounded-lg bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-rose-600 hover:shadow-lg"
             >
-              📄 Експорт у PDF
+              <DocumentArrowDownIcon className="w-4 h-4" />
+              Експорт у PDF
             </button>
             <button
               type="button"
               onClick={handleExportXlsx}
-              className="rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-600 hover:shadow-lg"
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-600 hover:shadow-lg"
             >
-              📊 Експорт у Excel
+              <SpreadsheetIcon className="w-4 h-4" />
+              Експорт у Excel
             </button>
           </div>
         </div>
@@ -568,35 +579,35 @@ function ReportsPage() {
           label="Вироблено"
           value={`${periodTons} т`}
           hint="за обраний період"
-          icon="🏭"
+          icon={<FactoryIcon className="w-5 h-5" />}
         />
         <KpiCard
           accent="emerald"
           label="Собівартість"
           value={`${totalCostUah.toLocaleString('uk-UA')} ₴`}
           hint={periodTons > 0 ? `${Math.round(totalCostUah / periodTons).toLocaleString('uk-UA')} ₴/т` : '—'}
-          icon="💰"
+          icon={<BanknotesIcon className="w-5 h-5" />}
         />
         <KpiCard
           accent="orange"
           label="Активні інциденти"
           value={activeIncidentsCount}
           hint="в роботі + на перевірці"
-          icon="⚠"
+          icon={<ExclamationTriangleIcon className="w-5 h-5" />}
         />
         <KpiCard
           accent="rose"
           label="Не «Робоча»"
           value={nonWorkingEquipmentCount}
           hint="одиниць обладнання"
-          icon="🔧"
+          icon={<WrenchIcon className="w-5 h-5" />}
         />
         <KpiCard
           accent="amber"
           label="Партій"
           value={filteredBatches.length}
           hint="за обраний період"
-          icon="📦"
+          icon={<CubeIcon className="w-5 h-5" />}
         />
       </div>
 

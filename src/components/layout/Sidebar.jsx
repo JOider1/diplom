@@ -1,6 +1,18 @@
 import { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import {
+  HomeIcon,
+  CalendarIcon,
+  UsersIcon,
+  ClipboardListIcon,
+  ExclamationTriangleIcon,
+  BeakerIcon,
+  CogIcon,
+  ChartBarIcon,
+  UserIcon,
+  DocumentTextIcon,
+} from '../common/Icons'
 
 const ALL = ['admin', 'shift-manager', 'operator', 'accountant']
 
@@ -8,36 +20,36 @@ const MENU_GROUPS = [
   {
     label: 'Огляд',
     items: [
-      { to: '/dashboard',       label: 'Головна',           icon: '🏠', roles: ALL },
-      { to: '/daily-overview',  label: 'Зведення за день',  icon: '📅', roles: ALL },
+      { to: '/dashboard',       label: 'Головна',           Icon: HomeIcon,                 roles: ALL },
+      { to: '/daily-overview',  label: 'Зведення за день',  Icon: CalendarIcon,             roles: ALL },
     ],
   },
   {
     label: 'Виробництво',
     items: [
-      { to: '/shift-management',    label: 'Зміни',              icon: '👥', roles: ['admin', 'shift-manager'] },
-      { to: '/production-journal',  label: 'Журнал виробництва', icon: '📋', roles: ['admin', 'shift-manager', 'operator', 'accountant'] },
-      { to: '/incidents',           label: 'Інциденти',          icon: '⚠', roles: ['admin', 'shift-manager', 'operator'] },
+      { to: '/shift-management',    label: 'Зміни',              Icon: UsersIcon,               roles: ['admin', 'shift-manager'] },
+      { to: '/production-journal',  label: 'Журнал виробництва', Icon: ClipboardListIcon,       roles: ['admin', 'shift-manager', 'operator', 'accountant'] },
+      { to: '/incidents',           label: 'Інциденти',          Icon: ExclamationTriangleIcon, roles: ['admin', 'shift-manager', 'operator'] },
     ],
   },
   {
     label: 'Довідники',
     items: [
-      { to: '/recipes',   label: 'Рецепти',    icon: '🧪', roles: ['admin', 'shift-manager', 'accountant'] },
-      { to: '/equipment', label: 'Обладнання', icon: '⚙', roles: ['admin', 'shift-manager', 'operator'] },
+      { to: '/recipes',   label: 'Рецепти',    Icon: BeakerIcon, roles: ['admin', 'shift-manager', 'accountant'] },
+      { to: '/equipment', label: 'Обладнання', Icon: CogIcon,    roles: ['admin', 'shift-manager', 'operator'] },
     ],
   },
   {
     label: 'Звітність',
     items: [
-      { to: '/reports', label: 'Звіти та аналітика', icon: '📊', roles: ['admin', 'shift-manager', 'accountant'] },
+      { to: '/reports', label: 'Звіти та аналітика', Icon: ChartBarIcon, roles: ['admin', 'shift-manager', 'accountant'] },
     ],
   },
   {
     label: 'Адмін-панель',
     items: [
-      { to: '/users',     label: 'Користувачі',  icon: '👤', roles: ['admin'] },
-      { to: '/audit-log', label: 'Історія дій',  icon: '📜', roles: ['admin'] },
+      { to: '/users',     label: 'Користувачі',  Icon: UserIcon,         roles: ['admin'] },
+      { to: '/audit-log', label: 'Історія дій',  Icon: DocumentTextIcon, roles: ['admin'] },
     ],
   },
 ]
@@ -82,7 +94,7 @@ function Sidebar({ open, onClose }) {
             onClick={onClose}
             className="ml-2 rounded-md border border-slate-300 bg-white p-2 text-slate-700 hover:bg-slate-100 lg:hidden dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
           >
-            ✕
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
@@ -108,7 +120,7 @@ function Sidebar({ open, onClose }) {
                         }`
                       }
                     >
-                      <span className="text-base">{item.icon}</span>
+                      <item.Icon className="w-[18px] h-[18px] shrink-0" />
                       <span>{item.label}</span>
                     </NavLink>
                   ))}

@@ -3,6 +3,7 @@ import PageHero from '../components/common/PageHero'
 import { ExportPdfButton, ExportXlsxButton } from '../components/common/ExportButtons'
 import { useAppData } from '../context/AppDataContext'
 import { exportRows } from '../utils/xlsxExport'
+import { ArrowPathIcon } from '../components/common/Icons'
 
 function formatDetails(details) {
   if (details == null) {
@@ -91,7 +92,8 @@ function AuditLogPage() {
           disabled={refreshing}
           className="rounded-lg border border-white/40 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-white/20 hover:shadow-lg disabled:opacity-60"
         >
-          {refreshing ? '⏳ Оновлення…' : '🔄 Оновити'}
+          <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Оновлення…' : 'Оновити'}
         </button>
         <ExportPdfButton onClick={handleExportPdf} />
         <ExportXlsxButton onClick={handleExport} />

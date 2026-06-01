@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react'
 import { useAppData } from '../context/AppDataContext'
 import { useTheme } from '../context/ThemeContext'
 import { initialRawStorageKg } from '../data/mockData'
+import { WheatIcon, CornIcon, BeakerIcon, ExclamationTriangleIcon } from '../components/common/Icons'
 
 const parseDateTime = (value) => {
   if (!value || typeof value !== 'string') return null
@@ -20,9 +21,9 @@ const parseDateTime = (value) => {
 }
 
 const STORAGE_META = {
-  wheat: { label: 'Пшениця', icon: '🌾', color: 'bg-amber-500', accent: 'border-l-amber-500' },
-  corn: { label: 'Кукурудза', icon: '🌽', color: 'bg-orange-500', accent: 'border-l-orange-500' },
-  premix: { label: 'Премікси', icon: '🧪', color: 'bg-emerald-500', accent: 'border-l-emerald-500' },
+  wheat:  { label: 'Пшениця',   Icon: WheatIcon,  color: 'bg-amber-500',   accent: 'border-l-amber-500',   iconColor: 'text-amber-600' },
+  corn:   { label: 'Кукурудза', Icon: CornIcon,   color: 'bg-orange-500',  accent: 'border-l-orange-500',  iconColor: 'text-orange-600' },
+  premix: { label: 'Премікси',  Icon: BeakerIcon, color: 'bg-emerald-500', accent: 'border-l-emerald-500', iconColor: 'text-emerald-600' },
 }
 
 const toDateKey = (d) => {
@@ -169,7 +170,7 @@ function DashboardPage() {
       {lowStockWarnings.length > 0 && (
         <div className="rounded-xl border-l-4 border-l-rose-500 border border-rose-200 bg-rose-50 p-4 shadow-sm">
           <div className="flex items-start gap-3">
-            <span className="text-2xl">⚠</span>
+            <ExclamationTriangleIcon className="w-6 h-6 shrink-0 text-rose-600" />
             <div>
               <p className="font-semibold text-rose-900">Критично низькі запаси</p>
               <p className="mt-1 text-sm text-rose-800">
@@ -192,6 +193,7 @@ function DashboardPage() {
           const daily = averageDailyConsumptionKg[key] || 0
           const daysLeft = daily > 0 ? Math.max(1, Math.round(current / daily)) : null
           const isCritical = daysLeft && daysLeft < 3
+          const StorageIcon = meta.Icon
           return (
             <div
               key={key}
@@ -207,8 +209,8 @@ function DashboardPage() {
                     <span className="ml-1 text-sm font-normal text-slate-500">кг</span>
                   </p>
                 </div>
-                <div className="rounded-lg bg-white/70 p-2 text-2xl shadow-sm dark:bg-slate-700">
-                  {meta.icon}
+                <div className={`rounded-lg bg-white/70 p-2 shadow-sm dark:bg-slate-700 ${meta.iconColor}`}>
+                  <StorageIcon className="w-7 h-7" />
                 </div>
               </div>
               <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
