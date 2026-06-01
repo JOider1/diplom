@@ -122,8 +122,6 @@ function ShiftManagementPage() {
       'Пшениця, т': s.openingData?.wheat,
       'Кукурудза, т': s.openingData?.corn,
       'Премікси, т': s.openingData?.premix,
-      'Лінія 1': s.openingData?.granulationLine1,
-      'Лінія 2': s.openingData?.granulationLine2,
     })),
     options: {
       docTitle: 'Журнал виробничих змін',
@@ -341,24 +339,9 @@ function ShiftManagementPage() {
                 <td className="px-4 py-3">{shift.status}</td>
                 <td className="px-4 py-3">{shift.notes || '—'}</td>
                 <td className="px-4 py-3">{shift.operator || '—'}</td>
-                <td className="max-w-md px-4 py-3 align-top text-xs">
-                  <div>
-                    Пш {shift.openingData?.wheat ?? '—'}т, Кк {shift.openingData?.corn ?? '—'}т, Пр{' '}
-                    {shift.openingData?.premix ?? '—'}т
-                  </div>
-                  <div className="mt-1">
-                    L1: {shift.openingData?.granulationLine1 ?? '—'} · L2:{' '}
-                    {shift.openingData?.granulationLine2 ?? '—'}
-                  </div>
-                  {shift.openingData?.equipmentByIncidents?.length ? (
-                    <ul className="mt-2 list-inside list-disc space-y-0.5 text-[11px] text-slate-600 dark:text-slate-300">
-                      {shift.openingData.equipmentByIncidents.map((row) => (
-                        <li key={row.id}>
-                          {row.name}: {row.fromIncidents} (довідн.: {row.directoryStatus})
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
+                <td className="px-4 py-3 text-xs">
+                  Пш {shift.openingData?.wheat ?? '—'}т · Кк {shift.openingData?.corn ?? '—'}т · Пр{' '}
+                  {shift.openingData?.premix ?? '—'}т
                 </td>
               </tr>
             ))}
